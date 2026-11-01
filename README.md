@@ -20,7 +20,7 @@ No environment variables, backend server or database are required. Vercel serves
 
 Controls: W/S or arrows to accelerate/brake, A/D to steer, Space handbrake, H horn, C camera, V vehicle, M map, T time, G weather, R reset, Esc pause/settings, P Tipsoi products. Touch controls appear on mobile devices. Records are stored locally; the reference game's server API is disabled.
 
-New games begin in Dhaka. The corner **মেনু** button opens the device, graphics, map, camera, vehicle, time, weather, mirror, sound and basic-control options. The menu pauses driving while open; close it with its close button, the backdrop or Escape.
+New games begin on the N3 Dhaka–Mymensingh Highway, just beyond the Dhaka junction, heading towards Mymensingh. The top-right **মেনু** button opens the device, graphics, map, camera, vehicle, time, weather, mirror, sound and basic-control options. The menu pauses driving while open; close it with its close button, the backdrop or Escape.
 
 High graphics is now the default: antialiasing, pixel ratio up to 2, 4096px desktop terrain (2048px touch devices), soft 2048px shadows, and high-resolution advertising textures. The garage dropdown and HUD graphics button switch between High and Balanced; the choice persists in this browser. Mirrors remain optional.
 

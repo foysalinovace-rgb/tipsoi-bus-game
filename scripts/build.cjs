@@ -5,7 +5,7 @@ html = html.replace(/<img id="ldLogo"[^>]*>/, '<img id="ldLogo" src="assets/tips
 html = html.replaceAll('Ostad Driver', 'Tipsoi Driver').replaceAll('BLUE LINE', 'TIPSOI').replaceAll('Blue Line', 'Tipsoi Express').replaceAll('ব্লু লাইন কোচ', 'টিপসই এক্সপ্রেস');
 html = html.replaceAll('ostad.', 'tipsoi.').replaceAll('OSTAD_CONFIG', 'TIPSOI_CONFIG').replaceAll('OSTAD_LD', 'TIPSOI_LD');
 html = html.replace('"api":"/api"', '"api":""');
-html = html.replaceAll('teleport(dhaka.x + 900, dhaka.z + 1400, [ctg.x, ctg.z])', 'teleport(dhaka.x, dhaka.z, [ctg.x, ctg.z])');
+html = html.replaceAll('teleport(dhaka.x + 900, dhaka.z + 1400, [ctg.x, ctg.z])', 'startOnMymensinghHighway()');
 html = html.replace('vendor/three-r128.min.js', 'assets/three.min.js').replace('fonts/fonts.css', 'assets/fonts.css');
 html = html.replace('<link rel="icon" href="favicon.png">', '<link rel="icon" href="assets/tipsoi-white.png">').replace('content="og.png"', 'content="assets/fastface-8.png"');
 html = html.replaceAll('https://www.facebook.com/ostaddriver/', 'https://www.facebook.com/tipsoibangladesh/');

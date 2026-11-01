@@ -1,5 +1,12 @@
 // Tipsoi artwork and distance-spaced, pooled roadside advertising.
 const TIPSOI_ASSETS=[];
+function startOnMymensinghHighway(){
+  const road=RD.find(r=>r.id==='N3'&&r.name==='Dhaka–Mymensingh Highway');
+  // Start beyond the Dhaka junction, in the left lane heading towards Mymensingh.
+  const p=roadPoint(road,Math.min(180,road.len/2));
+  teleport(p.x,p.z,[p.x+p.tx*100,p.z+p.tz*100]);
+  st.speed=0;st.road=road;st.onRoad=true;updateHUD();
+}
 let TIPSOI_QUALITY='high';
 try{TIPSOI_QUALITY=localStorage.getItem('tipsoi.graphics')||'high'}catch(_){}
 if(!['high','balanced'].includes(TIPSOI_QUALITY))TIPSOI_QUALITY='high';

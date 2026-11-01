@@ -472,7 +472,7 @@ body.touch #ctrls kbd{display:none}
   #signBar{padding:4px 0}#howBtn{padding:2px 0}#intro>.ver{font-size:8px;margin-bottom:2px}
 }
 /* Gameplay options are revealed only by the corner menu button. */
-#gameMenuToggle{position:fixed;right:20px;bottom:174px;z-index:3;display:flex;align-items:center;gap:9px;background:#17182deb;color:#ede4ff;border:1px solid #b99cde66;border-radius:12px;padding:11px 16px;font:600 14px var(--f-body);cursor:pointer;box-shadow:0 5px 24px #0004;backdrop-filter:blur(12px)}
+#gameMenuToggle{position:fixed;right:max(20px,env(safe-area-inset-right,0px));top:max(20px,env(safe-area-inset-top,0px));bottom:auto;z-index:3;display:flex;align-items:center;gap:9px;background:#17182deb;color:#ede4ff;border:1px solid #b99cde66;border-radius:12px;padding:11px 16px;font:600 14px var(--f-body);cursor:pointer;box-shadow:0 5px 24px #0004;backdrop-filter:blur(12px)}
 #gameMenuToggle:hover{background:#352b4a}#gameMenuToggle:focus-visible{outline:2px solid #c9b3ff;outline-offset:3px}body.attract #gameMenuToggle{display:none}
 #gameMenu{position:fixed;inset:20px 20px auto auto;margin:0;box-sizing:border-box;width:min(390px,calc(100vw - 32px));max-height:calc(100dvh - 40px);padding:20px;background:#161727f5;color:#f4eeff;border:1px solid #bda2e65c;border-radius:20px;box-shadow:0 24px 80px #0008;overflow:auto;overscroll-behavior:contain}
 #gameMenu::backdrop{background:#08091666;backdrop-filter:blur(3px)}.game-menu-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding-bottom:15px;border-bottom:1px solid #ffffff18;margin-bottom:16px}.game-menu-head h2{margin:0;font:600 23px var(--f-body)}#gameMenuClose{border:1px solid #ffffff24;background:#ffffff08;color:#e2d2ff;border-radius:9px;padding:7px 11px;cursor:pointer}
@@ -480,8 +480,8 @@ body.touch #ctrls kbd{display:none}
 #gameMenu #ctrls button{min-width:0;min-height:42px;justify-content:space-between;padding:10px 12px;font-size:12px}#gameMenu #ctrls .lbl{display:inline!important}#gameMenu #ctrls kbd{display:inline;color:#bc9ae8}
 #gameMenu #keys,body.touch #gameMenu #keys,body:not(.touch) #gameMenu #keys{display:grid!important;position:static;inset:auto;width:auto;max-width:none;margin-top:18px;padding:14px 0 0;border:0;border-top:1px solid #ffffff18;border-radius:0;background:none;box-shadow:none;backdrop-filter:none}
 #gameMenu #keysList{grid-template-columns:auto minmax(0,1fr)}#gameMenu #keys.collapsed #keysList{display:none}
-@media(max-width:700px){#gameMenuToggle{right:16px;bottom:20px;padding:10px 15px}#gameMenu{inset:12px 12px auto auto;width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:17px}}
-@media(orientation:landscape) and (max-height:540px){#gameMenuToggle{bottom:20px;right:16px}#gameMenu{top:12px;right:12px;max-height:calc(100dvh - 24px)}}
+@media(max-width:700px){#gameMenuToggle{right:max(12px,env(safe-area-inset-right,0px));top:max(12px,env(safe-area-inset-top,0px));bottom:auto;padding:10px 15px}#gameMenu{inset:12px 12px auto auto;width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:17px}}
+@media(orientation:landscape) and (max-height:540px){#gameMenuToggle{top:max(12px,env(safe-area-inset-top,0px));bottom:auto;right:max(12px,env(safe-area-inset-right,0px))}#gameMenu{top:12px;right:12px;max-height:calc(100dvh - 24px)}}
 
 </style>
 <div id="ld" role="status" aria-live="polite" aria-label="Loading Tipsoi Driver">
@@ -687,6 +687,13 @@ if (typeof THREE === 'undefined') TIPSOI_LD.fail();
 document.getElementById('logo').src = document.getElementById('ldLogo').src;
 // Tipsoi artwork and distance-spaced, pooled roadside advertising.
 const TIPSOI_ASSETS=[];
+function startOnMymensinghHighway(){
+  const road=RD.find(r=>r.id==='N3'&&r.name==='Dhaka–Mymensingh Highway');
+  // Start beyond the Dhaka junction, in the left lane heading towards Mymensingh.
+  const p=roadPoint(road,Math.min(180,road.len/2));
+  teleport(p.x,p.z,[p.x+p.tx*100,p.z+p.tz*100]);
+  st.speed=0;st.road=road;st.onRoad=true;updateHUD();
+}
 let TIPSOI_QUALITY='high';
 try{TIPSOI_QUALITY=localStorage.getItem('tipsoi.graphics')||'high'}catch(_){}
 if(!['high','balanced'].includes(TIPSOI_QUALITY))TIPSOI_QUALITY='high';
@@ -7703,7 +7710,7 @@ $('go').onclick = () => {
     // leave the cinematic: put the chosen vehicle on the Dhaka–Chattogram highway on a fresh morning
     attract = false; document.body.classList.remove('attract'); requestAnimationFrame(layoutMirrors);   // the mirrors were hidden behind the start screen: measure them again
     if (vehKey !== pickVeh) { vehKey = pickVeh; buildCar(); }
-    const dhaka = cityByName('Dhaka'), ctg = cityByName('Chattogram'); teleport(dhaka.x, dhaka.z, [ctg.x, ctg.z]);
+    const dhaka = cityByName('Dhaka'), ctg = cityByName('Chattogram'); startOnMymensinghHighway();
     st.cam = vehKey === 'bus' ? 2 : 0; snapCamera(); ENV.hour = 8; ENV.golden = false; updateEnvHud(); toast(VEHICLES[vehKey].toast);
   }
   $('intro').hidden = true; paused = false; last = performance.now(); started = true;
@@ -7783,7 +7790,7 @@ async function boot(saved) {
   buildJump(); bindBigMap();
   const dhaka = cityByName('Dhaka'), ctg = cityByName('Chattogram');
   if (saved && isFinite(saved.x)) { vehKey = saved.veh || 'car'; buildCar(); teleport(saved.x, saved.z); st.h = saved.h; st.cam = saved.cam || 0; snapCamera(); }
-  else { teleport(dhaka.x, dhaka.z, [ctg.x, ctg.z]); st.cam = 2; }
+  else { startOnMymensinghHighway(); st.cam = 2; }
   updateHUD();
   requestAnimationFrame(frame);
   $('go').disabled = false; setGo('রাস্তায় নামুন', 'Start driving'); $('intro').classList.remove('loading');
