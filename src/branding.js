@@ -55,4 +55,18 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('graphicsQuality').value=TIPSOI_QUALITY;
   document.getElementById('graphicsQuality').addEventListener('change',e=>applyTipsoiQuality(e.target.value));
   document.getElementById('bQuality').addEventListener('click',()=>applyTipsoiQuality(TIPSOI_QUALITY==='high'?'balanced':'high'));
+  const toggle=document.getElementById('gameMenuToggle');
+  const menu=document.createElement('dialog');menu.id='gameMenu';menu.setAttribute('aria-labelledby','gameMenuTitle');
+  menu.innerHTML='<header class="game-menu-head"><h2 id="gameMenuTitle">গেম মেনু</h2><button type="button" id="gameMenuClose" aria-label="Close game menu">✕</button></header>';
+  const options=document.getElementById('ctrls'),keys=document.getElementById('keys');
+  menu.append(options,keys);document.body.append(menu);
+  let wasPaused=true;
+  function closeMenu(){if(!menu.open)return;menu.close();toggle.setAttribute('aria-expanded','false');paused=wasPaused;last=performance.now();toggle.focus();}
+  toggle.addEventListener('click',()=>{wasPaused=paused;paused=true;Object.keys(input).forEach(k=>input[k]=0);menu.showModal();toggle.setAttribute('aria-expanded','true');});
+  document.getElementById('gameMenuClose').addEventListener('click',closeMenu);
+  menu.addEventListener('cancel',e=>{e.preventDefault();closeMenu()});
+  menu.addEventListener('click',e=>{if(e.target===menu){const r=menu.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeMenu();}});
+  options.addEventListener('click',e=>{if(e.target.closest('#bMap,#bHelp,#bProducts'))closeMenu();},true);
+  // Keep menu keyboard navigation from reaching the driving shortcuts.
+  addEventListener('keydown',e=>{if(!menu.open)return;e.stopImmediatePropagation();if(e.code==='Escape'){e.preventDefault();closeMenu();}},true);
 });

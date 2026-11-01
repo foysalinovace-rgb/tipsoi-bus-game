@@ -5,6 +5,7 @@ html = html.replace(/<img id="ldLogo"[^>]*>/, '<img id="ldLogo" src="assets/tips
 html = html.replaceAll('Ostad Driver', 'Tipsoi Driver').replaceAll('BLUE LINE', 'TIPSOI').replaceAll('Blue Line', 'Tipsoi Express').replaceAll('ব্লু লাইন কোচ', 'টিপসই এক্সপ্রেস');
 html = html.replaceAll('ostad.', 'tipsoi.').replaceAll('OSTAD_CONFIG', 'TIPSOI_CONFIG').replaceAll('OSTAD_LD', 'TIPSOI_LD');
 html = html.replace('"api":"/api"', '"api":""');
+html = html.replaceAll('teleport(dhaka.x + 900, dhaka.z + 1400, [ctg.x, ctg.z])', 'teleport(dhaka.x, dhaka.z, [ctg.x, ctg.z])');
 html = html.replace('vendor/three-r128.min.js', 'assets/three.min.js').replace('fonts/fonts.css', 'assets/fonts.css');
 html = html.replace('<link rel="icon" href="favicon.png">', '<link rel="icon" href="assets/tipsoi-white.png">').replace('content="og.png"', 'content="assets/fastface-8.png"');
 html = html.replaceAll('https://www.facebook.com/ostaddriver/', 'https://www.facebook.com/tipsoibangladesh/');
@@ -24,6 +25,7 @@ html = html.replace('buildLabels();\n', 'buildLabels(); buildTipsoiBoards();\n')
 html = html.replace('updateLamps();\n', 'updateLamps(); updateTipsoiBoards(dt);\n');
 html = html.replace('renderer.render(scene, camera);\n', "renderer.render(scene, camera);\n  document.getElementById('gl').dataset.render = JSON.stringify({triangles:renderer.info.render.triangles,contextLost:renderer.getContext().isContextLost(),frame:renderer.info.render.frame});\n");
 html = html.replace('<div id="ctrls">', '<div id="ctrls"><button id="bProducts" title="Tipsoi products (P)"><span class="lbl">Devices</span><kbd>P</kbd></button><button id="bQuality" title="Change graphics quality"><span class="lbl" id="qualityLbl">High graphics</span></button>');
+html = html.replace('<div id="ctrls">', '<button id="gameMenuToggle" type="button" aria-haspopup="dialog" aria-controls="gameMenu" aria-expanded="false">☰ <span>মেনু</span></button><div id="ctrls">');
 html = html.replace('স্টিয়ারিং এখন আপনার হাতে', 'টিপসই-এর সাথে বাংলাদেশ ঘুরুন');
 html = html.replace('<img id="logo" alt="Tipsoi Driver">', '<div class="edition-label">THE OPEN ROAD COLLECTION / 01</div><img id="logo" alt="Tipsoi Driver"><div class="driver-word">DRIVER<span>এক দেশ। অসংখ্য পথ।</span></div>');
 html = html.replace('স্টিয়ারিং এখন আপনার হাতে', 'আপনার যাত্রা, আপনার নিয়ম।');
