@@ -10,6 +10,14 @@ Run `npm start` (or `node serve.cjs`), then open http://127.0.0.1:4173. Node.js 
 
 `dist/` contains the ready-to-host static game and all its runtime assets. `src/` contains the reference baseline and Tipsoi customization sources. After editing those sources, run `npm run build` to regenerate `dist/index.html`. Any static web host can serve `dist/`.
 
+## Deploy to Vercel
+
+1. In Vercel, choose **Add New → Project** and import `foysalinovace-rgb/tipsoi-bus-game`.
+2. Keep **Root Directory** at the repository root (`./`).
+3. Deploy. `vercel.json` selects the **Other** framework preset, runs `npm run build`, and publishes `dist/`. Dependency installation is skipped because this project has no npm dependencies.
+
+No environment variables, backend server or database are required. Vercel serves the static game directly; `npm start` is only for local development. After connecting the repository, pushes to `main` can trigger production deployments through Vercel's Git integration.
+
 Controls: W/S or arrows to accelerate/brake, A/D to steer, Space handbrake, H horn, C camera, V vehicle, M map, T time, G weather, R reset, Esc pause/settings, P Tipsoi products. Touch controls appear on mobile devices. Records are stored locally; the reference game's server API is disabled.
 
 High graphics is now the default: antialiasing, pixel ratio up to 2, 4096px desktop terrain (2048px touch devices), soft 2048px shadows, and high-resolution advertising textures. The garage dropdown and HUD graphics button switch between High and Balanced; the choice persists in this browser. Mirrors remain optional.
