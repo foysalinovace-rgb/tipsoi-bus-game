@@ -54,3 +54,34 @@
 /* Shared overlays and small-screen toolbar labels. */
 #pauseOv,#howOv{background:rgba(8,9,20,.72)}#pausePanel,#recPanel,#howCard{background:rgba(22,23,42,.97);border:1px solid #b8a0ef44;border-radius:22px;padding-top:22px;color:#f0eafa}#pauseHead{padding-bottom:18px;border-bottom:1px solid #ffffff13}#resume{background:#c8b5ff;color:#211730;box-shadow:none;border-radius:10px}#pausePanel .btn,#recPanel .btn,#optHorn button{background:#ffffff08;border:1px solid #b5a0df35;border-radius:10px;box-shadow:none;color:#ddd1f4}#pausePanel .btn:hover,#optHorn button:hover{background:#bca3f326}.panel{background:#16182ced;border:1px solid #b7a2dc44;border-radius:18px}#howCard{padding-top:18px}input[type=range]{accent-color:#c3a9ff}
 @media(max-width:700px){#ctrls .lbl{display:inline!important}#ctrls #qualityLbl{max-width:90px}#ctrls button{min-height:30px}.ticket .stub{display:grid!important;gap:0!important}.ticket .tk{text-align:left!important}}
+/* Keep the existing garage design within the available screen height. */
+#intro{height:100%;height:100dvh;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#home{flex:1 1 auto;gap:clamp(20px,4vw,60px);padding:clamp(12px,3vh,32px) clamp(20px,4vw,56px)}
+#counter{gap:clamp(10px,1.8vh,18px);padding:clamp(14px,2.5vh,24px)}
+.ticket{padding:clamp(7px,1.3vh,13px) 13px}
+#signBar{flex:0 0 auto;padding:10px 0 12px}
+#intro>.ver{flex:0 0 auto;line-height:1.4;max-width:calc(100% - 24px)}
+@media(max-width:700px) and (orientation:portrait){
+  #home{gap:14px;padding:14px 20px;align-content:center}
+  #hero{gap:6px}.edition-label{font-size:8px;margin:0 0 3px}
+  #logo{width:110px!important;max-height:34px}.driver-word{font-size:46px;margin:0}.driver-word span{font-size:19px;margin-top:5px}
+  #tagBn{font-size:15px}#tagSub{font-size:12px;line-height:1.4}
+  #counter{padding:16px;gap:10px}#counterHead{font-size:20px}#counterHead span{font-size:9px;margin-bottom:5px}
+  #vehPick{gap:7px}.ticket{padding:8px 11px;grid-template-columns:44px minmax(0,1fr) 45px;gap:9px}.ticket .vic{width:42px;height:28px}.ticket .tk b{font-size:17px}.ticket .stub b{font-size:21px}
+  .graphics-row{gap:5px}.graphics-row select{padding:8px}#go{padding:10px 14px}#go b{font-size:21px}#recRow{gap:3px}#recLine{font-size:9px}
+  #signBar{padding:8px 0}#signBar>span{font-size:9px}#howBtn{font-size:12px;padding:3px 0}
+}
+@media(max-width:700px) and (orientation:portrait) and (max-height:740px){
+  #home{gap:10px;padding:10px 16px}#hero{gap:4px}.edition-label{font-size:7px;margin:0}
+  #logo{width:90px!important;max-height:27px}.driver-word{font-size:38px}.driver-word span{font-size:16px;margin-top:4px}#tagBn{font-size:13px}#tagSub{font-size:11px}
+  #counter{padding:12px;gap:7px}#counterHead{font-size:18px}#counterHead span{font-size:8px;margin-bottom:4px}
+  #vehPick{gap:6px}.ticket{padding:6px 9px}.ticket .vic{height:24px}.ticket .tk b{font-size:16px}.ticket .stub b{font-size:19px}
+  .graphics-row{gap:3px}.graphics-row label{font-size:10px}.graphics-row select{padding:7px;font-size:11px}#go{padding:8px 12px}#go b{font-size:19px}#go small{font-size:10px}#sndBtn{width:46px}#recRow button{font-size:10px}#recLine{font-size:8px}
+  #signBar{padding:5px 0}#intro>.ver{font-size:8px}
+}
+@media(orientation:landscape) and (max-height:540px){
+  #home{grid-template-columns:minmax(0,1fr) minmax(260px,330px);gap:18px;padding:10px 20px}#counter{padding:12px;gap:7px}
+  #hero{gap:6px}.edition-label{margin:0}#logo{width:110px!important}.driver-word{font-size:48px}.driver-word span{font-size:18px;margin-top:6px}#tagBn{font-size:16px}#tagSub{font-size:12px}
+  #counterHead{font-size:18px}#counterHead span{margin-bottom:4px}.ticket{padding:5px 10px}.ticket .vic{height:24px}#vehPick{gap:6px}.graphics-row select{padding:6px}#go{padding:7px 12px}#go b{font-size:18px}
+  #signBar{padding:4px 0}#howBtn{padding:2px 0}#intro>.ver{font-size:8px;margin-bottom:2px}
+}
