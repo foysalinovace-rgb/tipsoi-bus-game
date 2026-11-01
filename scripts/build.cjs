@@ -1,5 +1,6 @@
 const fs = require('fs');
 let html = fs.readFileSync('src/reference.html', 'utf8');
+html = html.replaceAll('build version 2026.1.02', 'build version 2026.11.1 · Development By FA Polok');
 html = html.replace(/<img id="ldLogo"[^>]*>/, '<img id="ldLogo" src="assets/tipsoi-white.png" alt="Tipsoi Driver">');
 html = html.replaceAll('Ostad Driver', 'Tipsoi Driver').replaceAll('BLUE LINE', 'TIPSOI').replaceAll('Blue Line', 'Tipsoi Express').replaceAll('ব্লু লাইন কোচ', 'টিপসই এক্সপ্রেস');
 html = html.replaceAll('ostad.', 'tipsoi.').replaceAll('OSTAD_CONFIG', 'TIPSOI_CONFIG').replaceAll('OSTAD_LD', 'TIPSOI_LD');
