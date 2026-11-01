@@ -1,5 +1,22 @@
 // Tipsoi artwork and distance-spaced, pooled roadside advertising.
 const TIPSOI_ASSETS=[];
+// High preserves the existing 50% pool density; the quieter presets are subsets.
+function trafficPresetValue(value){return +value>=4?5:+value>=2?2:1;}
+function trafficPresetLabel(value){return ({5:'High',2:'Medium',1:'Low'})[trafficPresetValue(value)];}
+function syncTrafficPreset(){
+  const value=String(OPTS.traffic);
+  for(const id of ['menuTraffic','optTraffic']){const select=document.getElementById(id);if(select)select.value=value;}
+  document.documentElement.dataset.traffic=trafficPresetLabel(OPTS.traffic).toLowerCase();
+}
+function setTrafficPreset(value){
+  OPTS.traffic=trafficPresetValue(value);applyOpts();
+  if(TR.ready){
+    for(const v of TR.list){if(hash2(v.seed,991)>=GAME_CONFIG.trafficDensity){if(v.active)despawn(v);}else if(!v.active)trySpawn(v,true);}
+    updateTraffic(0);
+    document.getElementById('gl').dataset.trafficEligible=TR.list.filter(v=>hash2(v.seed,991)<GAME_CONFIG.trafficDensity).length;
+    document.getElementById('gl').dataset.trafficActive=TR.list.filter(v=>v.active).length;
+  }
+}
 function startOnMymensinghHighway(){
   const road=RD.find(r=>r.id==='N3'&&r.name==='Dhaka–Mymensingh Highway');
   // Start beyond the Dhaka junction, in the left lane heading towards Mymensingh.
@@ -66,7 +83,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   const menu=document.createElement('dialog');menu.id='gameMenu';menu.setAttribute('aria-labelledby','gameMenuTitle');
   menu.innerHTML='<header class="game-menu-head"><h2 id="gameMenuTitle">গেম মেনু</h2><button type="button" id="gameMenuClose" aria-label="Close game menu">✕</button></header>';
   const options=document.getElementById('ctrls'),keys=document.getElementById('keys');
-  menu.append(options,keys);document.body.append(menu);
+  const trafficSetting=document.createElement('div');trafficSetting.className='traffic-setting';
+  trafficSetting.innerHTML='<label for="menuTraffic">Traffic / রাস্তায় গাড়ির পরিমাণ</label><select id="menuTraffic"><option value="5">High — বর্তমান গাড়ির পরিমাণ</option><option value="2">Medium — কম গাড়ি</option><option value="1">Low — খুব কম গাড়ি</option></select>';
+  menu.append(options,trafficSetting,keys);document.body.append(menu);
+  syncTrafficPreset();
+  for(const id of ['menuTraffic','optTraffic'])document.getElementById(id).addEventListener('change',e=>setTrafficPreset(e.target.value));
   let wasPaused=true;
   function closeMenu(){if(!menu.open)return;menu.close();toggle.setAttribute('aria-expanded','false');paused=wasPaused;last=performance.now();toggle.focus();}
   toggle.addEventListener('click',()=>{wasPaused=paused;paused=true;Object.keys(input).forEach(k=>input[k]=0);menu.showModal();toggle.setAttribute('aria-expanded','true');});

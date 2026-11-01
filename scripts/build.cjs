@@ -14,6 +14,11 @@ html = html.replace('renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.
 html = html.replace('buildScene(tex); buildCar(); buildLabels();', 'buildScene(tex); applyTipsoiQuality(); buildCar(); buildLabels();');
 html = html.replace("let on = true; try { on = localStorage.getItem('tipsoi.mirrors') !== '0';", "let on = false; try { on = localStorage.getItem('tipsoi.mirrors') === '1';");
 html = html.replace("traffic: 10, vol: 8", "traffic: 5, vol: 8");
+html = html.replace(/<div class="set"><label for="optTraffic">[\s\S]*?<\/small><\/div>/, '<div class="set"><label for="optTraffic">Traffic <output id="optTrafficV">High</output></label><select id="optTraffic"><option value="5">High — বর্তমান গাড়ির পরিমাণ</option><option value="2">Medium — কম গাড়ি</option><option value="1">Low — খুব কম গাড়ি</option></select></div>');
+html = html.replace('GAME_CONFIG.trafficDensity = OPTS.traffic / 10;', 'OPTS.traffic = trafficPresetValue(OPTS.traffic); GAME_CONFIG.trafficDensity = OPTS.traffic / 10; syncTrafficPreset();');
+html = html.replace("$('optTrafficV').textContent = OPTS.traffic", "$('optTrafficV').textContent = trafficPresetLabel(OPTS.traffic)");
+html = html.replace("[['optTraffic', 'traffic'], ['optVol', 'vol']", "[['optVol', 'vol']");
+html = html.replace('TR.list.forEach(v => trySpawn(v, true));', 'TR.list.forEach(v => { if (hash2(v.seed, 991) < GAME_CONFIG.trafficDensity) trySpawn(v, true); });');
 html = html.replaceAll("'#1554b8'", "'#1678b9'").replaceAll("'#1f5fbf'", "'#1678b9'");
 html = html.replace("g.fillText('TIPSOI', U(6.0), V(.95));", "g.fillText('TIPSOI', U(6.0), V(.95)); if (TIPSOI_ASSETS[0]) g.drawImage(TIPSOI_ASSETS[0], U(4.4)-70, V(.85)-26, 52, 72);");
 // A third of bazaar signs become actual product advertisements.
