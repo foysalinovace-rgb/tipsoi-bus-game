@@ -79,6 +79,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.getElementById('graphicsQuality').value=TIPSOI_QUALITY;
   document.getElementById('graphicsQuality').addEventListener('change',e=>applyTipsoiQuality(e.target.value));
   document.getElementById('bQuality').addEventListener('click',()=>applyTipsoiQuality(TIPSOI_QUALITY==='high'?'balanced':'high'));
+  document.getElementById('restartGame').addEventListener('click',()=>{
+    if(!started)return;
+    Object.keys(input).forEach(k=>input[k]=0);horn(false);
+    startOnMymensinghHighway();TIPSOI_BOARDS.timer=0;updateTipsoiBoards(0);snapCamera();
+    last=performance.now();toast('Restarted · ঢাকা–ময়মনসিংহ হাইওয়ে');
+  });
   const toggle=document.getElementById('gameMenuToggle');
   const menu=document.createElement('dialog');menu.id='gameMenu';menu.setAttribute('aria-labelledby','gameMenuTitle');
   menu.innerHTML='<header class="game-menu-head"><h2 id="gameMenuTitle">গেম মেনু</h2><button type="button" id="gameMenuClose" aria-label="Close game menu">✕</button></header>';

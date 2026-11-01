@@ -97,3 +97,10 @@
 .traffic-setting{display:grid;gap:8px;margin-top:18px}.traffic-setting label{font:500 13px var(--f-body);color:#cfbde9}.traffic-setting select,#optTraffic{width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid #b99cde44;border-radius:10px;background:#202035;color:#f3eaff;font:500 13px var(--f-body);cursor:pointer;outline-color:#c3a9ff}
 @media(max-width:700px){#gameMenuToggle{right:max(12px,env(safe-area-inset-right,0px));top:max(12px,env(safe-area-inset-top,0px));bottom:auto;padding:10px 15px}#gameMenu{inset:12px 12px auto auto;width:calc(100vw - 24px);max-height:calc(100dvh - 24px);padding:17px}}
 @media(orientation:landscape) and (max-height:540px){#gameMenuToggle{top:max(12px,env(safe-area-inset-top,0px));bottom:auto;right:max(12px,env(safe-area-inset-right,0px))}#gameMenu{top:12px;right:12px;max-height:calc(100dvh - 24px)}}
+/* Keep Restart beside the menu in the same top-right action group. */
+#gameActions{position:fixed;top:max(20px,env(safe-area-inset-top,0px));right:max(20px,env(safe-area-inset-right,0px));z-index:3;display:flex;align-items:center;gap:8px}
+#gameActions #gameMenuToggle{position:static;inset:auto}
+#restartGame{display:flex;align-items:center;justify-content:center;min-height:44px;padding:10px 14px;border:1px solid #b99cde66;border-radius:12px;background:#17182deb;color:#ede4ff;font:600 13px var(--f-body);cursor:pointer;box-shadow:0 5px 24px #0004;backdrop-filter:blur(12px)}
+#restartGame:hover{background:#352b4a}#restartGame:focus-visible{outline:2px solid #c9b3ff;outline-offset:3px}body.attract #gameActions{display:none}
+@media(max-width:700px),(orientation:landscape) and (max-height:540px){#gameActions{top:max(12px,env(safe-area-inset-top,0px));right:max(12px,env(safe-area-inset-right,0px));gap:6px}#restartGame{padding:9px 11px;font-size:12px}}
+@media(max-width:420px){#gameActions{flex-direction:column;align-items:flex-end;gap:5px}#restartGame{min-height:36px;padding:6px 10px}#gameActions #gameMenuToggle{padding:6px 12px}}

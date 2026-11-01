@@ -24,6 +24,8 @@ New games begin on the N3 Dhaka–Mymensingh Highway, just beyond the Dhaka junc
 
 Choose **Traffic** in that menu: **High** keeps the previous traffic density, **Medium** uses 40% of High's eligible vehicle pool, and **Low** uses 20%. Changes apply immediately and are saved with the browser's settings. The pause/settings screen uses the same three presets. Actual visible vehicle counts depend on nearby roads and available spawn space.
 
+**Low** is the default traffic preset. Existing browser settings migrate to Low once; subsequent manual preset changes remain saved. **Restart**, beside the top-right menu, returns the current vehicle to the N3 starting point and stops it, retaining the selected vehicle, camera, settings and driving records.
+
 High graphics is now the default: antialiasing, pixel ratio up to 2, 4096px desktop terrain (2048px touch devices), soft 2048px shadows, and high-resolution advertising textures. The garage dropdown and HUD graphics button switch between High and Balanced; the choice persists in this browser. Mirrors remain optional.
 
 The open-road design uses a lavender garage selector and a rearranged HUD. Facebook, Privacy and update navigation have been removed. Billboard placements repeat every 240 in-game metres along non-narrow road splines, alternating sides and avoiding water. There are 593 valid positions in this world. A pool of 28 double-faced billboards follows the player within 1900 metres, sharing three product textures to keep rendering bounded.
