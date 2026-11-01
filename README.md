@@ -8,4 +8,6 @@ Run `node serve.cjs`, then open http://127.0.0.1:4173.
 
 Controls: W/S or arrows to accelerate/brake, A/D to steer, Space handbrake, H horn, C camera, V vehicle, M map, T time, G weather, R reset, Esc pause/settings, P Tipsoi products. Touch controls appear on mobile devices. Records are stored locally; the reference game's server API is disabled.
 
-Default rendering uses a lower pixel ratio, smaller terrain texture, no shadows, and mirrors off for memory use. Mirrors can be enabled in game.
+High graphics is now the default: antialiasing, pixel ratio up to 2, 4096px desktop terrain (2048px touch devices), soft 2048px shadows, and high-resolution advertising textures. The garage dropdown and HUD graphics button switch between High and Balanced; the choice persists in this browser. Mirrors remain optional.
+
+The open-road design uses a lavender garage selector and a rearranged HUD. Facebook, Privacy and update navigation have been removed. Billboard placements repeat every 240 in-game metres along non-narrow road splines, alternating sides and avoiding water. There are 593 valid positions in this world. A pool of 28 double-faced billboards follows the player within 1900 metres, sharing three product textures to keep rendering bounded.
