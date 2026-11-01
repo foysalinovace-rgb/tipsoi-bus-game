@@ -1,0 +1,37 @@
+const fs = require('fs');
+let html = fs.readFileSync('src/reference.html', 'utf8');
+html = html.replace(/<img id="ldLogo"[^>]*>/, '<img id="ldLogo" src="assets/tipsoi-white.png" alt="Tipsoi Driver">');
+html = html.replaceAll('Ostad Driver', 'Tipsoi Driver').replaceAll('BLUE LINE', 'TIPSOI').replaceAll('Blue Line', 'Tipsoi Express').replaceAll('ব্লু লাইন কোচ', 'টিপসই এক্সপ্রেস');
+html = html.replaceAll('ostad.', 'tipsoi.').replaceAll('OSTAD_CONFIG', 'TIPSOI_CONFIG').replaceAll('OSTAD_LD', 'TIPSOI_LD');
+html = html.replace('"api":"/api"', '"api":""');
+html = html.replace('vendor/three-r128.min.js', 'assets/three.min.js').replace('fonts/fonts.css', 'assets/fonts.css');
+html = html.replace('<link rel="icon" href="favicon.png">', '<link rel="icon" href="assets/tipsoi-white.png">').replace('content="og.png"', 'content="assets/fastface-8.png"');
+html = html.replaceAll('https://www.facebook.com/ostaddriver/', 'https://www.facebook.com/tipsoibangladesh/');
+html = html.replaceAll('href="help.html#lag"', 'href="help.html"');
+html = html.replace('renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.75))', 'renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))');
+html = html.replace('buildScene(tex); buildCar(); buildLabels();', 'buildScene(tex); applyTipsoiQuality(); buildCar(); buildLabels();');
+html = html.replace("let on = true; try { on = localStorage.getItem('tipsoi.mirrors') !== '0';", "let on = false; try { on = localStorage.getItem('tipsoi.mirrors') === '1';");
+html = html.replace("traffic: 10, vol: 8", "traffic: 5, vol: 8");
+html = html.replaceAll("'#1554b8'", "'#1678b9'").replaceAll("'#1f5fbf'", "'#1678b9'");
+html = html.replace("g.fillText('TIPSOI', U(6.0), V(.95));", "g.fillText('TIPSOI', U(6.0), V(.95)); if (TIPSOI_ASSETS[0]) g.drawImage(TIPSOI_ASSETS[0], U(4.4)-70, V(.85)-26, 52, 72);");
+// A third of bazaar signs become actual product advertisements.
+html = html.replace("const TEA_SIGNS =", "SHOP_SIGNS.forEach((s,i)=>{ if(i%3===0) SHOP_SIGNS[i]=[['টিপসই FastFace 8','AI Face Recognition'],['টিপসই 5 Pro FP','Face + Fingerprint'],['টিপসই Go Lite','Portable Attendance']][(i/3)%3|0]; });\nconst TEA_SIGNS =");
+html = html.replace("g.fillStyle = S.fg; fitText(g, main, 228, 46);", "if(k%3===0 && TIPSOI_ASSETS[(k/3)%3|0]) { g.fillStyle='#e7f5ff';g.fillRect(x,y,256,128);g.drawImage(TIPSOI_ASSETS[(k/3)%3|0],x+8,y+10,90,108);g.fillStyle='#086ca9';g.font='800 25px sans-serif';g.fillText('tipsoi',x+174,y+34);g.font='600 16px sans-serif';g.fillText(['FastFace 8','5 Pro FP','Go Lite'][(k/3)%3|0],x+174,y+65);g.font='600 14px sans-serif';g.fillText('tipsoi.pro',x+174,y+94);return; }\n    g.fillStyle = S.fg; fitText(g, main, 228, 46);");
+html = html.replace('async function boot(', 'async function boot('); // Preserve the original boot signature.
+html = html.replace("await msg(12,", "await loadTipsoiAssets();\n  await msg(12,");
+html = html.replace('buildLabels();\n', 'buildLabels(); buildTipsoiBoards();\n');
+html = html.replace('updateLamps();\n', 'updateLamps(); updateTipsoiBoards(dt);\n');
+html = html.replace('renderer.render(scene, camera);\n', "renderer.render(scene, camera);\n  document.getElementById('gl').dataset.render = JSON.stringify({triangles:renderer.info.render.triangles,contextLost:renderer.getContext().isContextLost(),frame:renderer.info.render.frame});\n");
+html = html.replace('<div id="ctrls">', '<div id="ctrls"><button id="bProducts" title="Tipsoi products (P)"><span class="lbl">Devices</span><kbd>P</kbd></button><button id="bQuality" title="Change graphics quality"><span class="lbl" id="qualityLbl">High graphics</span></button>');
+html = html.replace('স্টিয়ারিং এখন আপনার হাতে', 'টিপসই-এর সাথে পথে নামুন');
+html = html.replace('<img id="logo" alt="Tipsoi Driver">', '<div class="edition-label">THE OPEN ROAD COLLECTION / 01</div><img id="logo" alt="Tipsoi Driver"><div class="driver-word">DRIVER<span>এক দেশ। অসংখ্য পথ।</span></div>');
+html = html.replace('স্টিয়ারিং এখন আপনার হাতে', 'আপনার যাত্রা, আপনার নিয়ম।');
+html = html.replace('<div id="counterHead">টিকিট কাউন্টার<span>Pick your ride</span></div>', '<div id="counterHead"><span>01 / YOUR GARAGE</span>যাত্রার সঙ্গী বেছে নিন</div>');
+html = html.replace('<div id="goRow">', '<div class="graphics-row"><label for="graphicsQuality">Graphics quality</label><select id="graphicsQuality"><option value="high">High · shadows + sharp detail</option><option value="balanced">Balanced · smoother performance</option></select></div><div id="goRow">');
+html = html.replace(/<nav id="signBar"[\s\S]*?<\/nav>/, '<nav id="signBar" aria-label="Game menu"><span>TIPSOI DRIVER <i>Explore Bangladesh</i></span><button type="button" id="howBtn">কীভাবে খেলবেন <small>↗</small></button></nav>');
+const brandingJS = fs.readFileSync('src/branding.js', 'utf8');
+html = html.replace('const BD_RINGS =', brandingJS + '\nconst BD_RINGS =');
+html = html.replace('</style>', fs.readFileSync('src/branding.css','utf8')+'\n</style>');
+html += fs.readFileSync('src/products.html','utf8');
+fs.writeFileSync('dist/index.html', html);
+console.log('Tipsoi game created: '+Buffer.byteLength(html)+' bytes');

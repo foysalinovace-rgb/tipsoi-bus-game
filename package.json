@@ -1,0 +1,13 @@
+{
+  "name": "tipsoi-bus-game",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Tipsoi-branded Bangladesh driving browser game",
+  "scripts": {
+    "start": "node serve.cjs",
+    "build": "node scripts/build.cjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

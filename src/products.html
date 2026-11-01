@@ -1,0 +1,13 @@
+<dialog id="productDialog" aria-labelledby="productsTitle">
+  <div class="products-head"><h2 id="productsTitle">tipsoi · Smart devices</h2><button id="closeProducts" aria-label="Close products">✕</button></div>
+  <p class="products-intro">স্মার্ট হাজিরা, সহজ ব্যবস্থাপনা। পথে পথে আপনার সাথে Tipsoi।</p>
+  <div class="products-grid">
+    <article class="product-card"><img src="assets/fastface-8.png" alt="Tipsoi FastFace 8 attendance device"><h3>FastFace 8</h3><p>AI facial recognition attendance device.</p><a href="https://tipsoi.pro/tipsoi-smart-attendance-devices/" target="_blank" rel="noopener">Explore devices ↗</a></article>
+    <article class="product-card"><img src="assets/fastface-5-pro.png" alt="Tipsoi FastFace 5 Pro FP biometric device"><h3>FastFace 5 Pro FP</h3><p>Face recognition and fingerprint attendance.</p><a href="https://tipsoi.pro/tipsoi-smart-attendance-devices/" target="_blank" rel="noopener">Explore devices ↗</a></article>
+    <article class="product-card"><img src="assets/fastface-go.png" alt="Tipsoi FastFace Go Lite portable device"><h3>FastFace Go Lite</h3><p>Portable biometric attendance for your team.</p><a href="https://tipsoi.pro/tipsoi-smart-attendance-devices/" target="_blank" rel="noopener">Explore devices ↗</a></article>
+  </div>
+  <p class="source-note">Game adapted from Ostad Driver · <a href="https://ostaddriver.com/" target="_blank" rel="noopener">Original game</a>. Product images and branding: <a href="https://tipsoi.pro/" target="_blank" rel="noopener">Tipsoi</a>. Records are saved on this device.</p>
+</dialog>
+<script>
+(()=>{const d=document.getElementById('productDialog');let prior=true;function open(){if(d.open)return;prior=paused;paused=true;Object.keys(input).forEach(k=>input[k]=0);d.showModal()}function close(){d.close();paused=prior;last=performance.now()}document.getElementById('bProducts').onclick=open;document.getElementById('closeProducts').onclick=close;d.addEventListener('cancel',e=>{e.preventDefault();close()});d.addEventListener('click',e=>{if(e.target===d)close()});addEventListener('keydown',e=>{if(e.code==='KeyP'&&!e.repeat){e.preventDefault();d.open?close():open()}else if(d.open&&e.code!=='Tab'&&e.code!=='Escape'){e.stopImmediatePropagation()}},true)})();
+</script>
