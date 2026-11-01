@@ -23,7 +23,7 @@ html = html.replace('buildLabels();\n', 'buildLabels(); buildTipsoiBoards();\n')
 html = html.replace('updateLamps();\n', 'updateLamps(); updateTipsoiBoards(dt);\n');
 html = html.replace('renderer.render(scene, camera);\n', "renderer.render(scene, camera);\n  document.getElementById('gl').dataset.render = JSON.stringify({triangles:renderer.info.render.triangles,contextLost:renderer.getContext().isContextLost(),frame:renderer.info.render.frame});\n");
 html = html.replace('<div id="ctrls">', '<div id="ctrls"><button id="bProducts" title="Tipsoi products (P)"><span class="lbl">Devices</span><kbd>P</kbd></button><button id="bQuality" title="Change graphics quality"><span class="lbl" id="qualityLbl">High graphics</span></button>');
-html = html.replace('স্টিয়ারিং এখন আপনার হাতে', 'টিপসই-এর সাথে পথে নামুন');
+html = html.replace('স্টিয়ারিং এখন আপনার হাতে', 'টিপসই-এর সাথে বাংলাদেশ ঘুরুন');
 html = html.replace('<img id="logo" alt="Tipsoi Driver">', '<div class="edition-label">THE OPEN ROAD COLLECTION / 01</div><img id="logo" alt="Tipsoi Driver"><div class="driver-word">DRIVER<span>এক দেশ। অসংখ্য পথ।</span></div>');
 html = html.replace('স্টিয়ারিং এখন আপনার হাতে', 'আপনার যাত্রা, আপনার নিয়ম।');
 html = html.replace('<div id="counterHead">টিকিট কাউন্টার<span>Pick your ride</span></div>', '<div id="counterHead"><span>01 / YOUR GARAGE</span>যাত্রার সঙ্গী বেছে নিন</div>');
