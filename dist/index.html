@@ -870,6 +870,122 @@ function tipsoiBillboardClearance(x,z,padding=20){
   for(let i=-radius;i<=radius;i++)for(let j=-radius;j<=radius;j++){const list=TIPSOI_BOARDS.grid.get((cx+i)+','+(cz+j));if(list)for(const p of list){const dx=x-p.x,dz=z-p.z;if(Math.abs(dx*p.tx+dz*p.tz)<padding+65&&Math.abs(dx*p.tz-dz*p.tx)<padding)return true;}}return false;
 }
 
+// Streamed, driveable building approaches and working roadside farms.
+const TIPSOI_ACCESS={paths:[],segments:[],grid:new Map(),buildings:[],buildingGrid:new Map(),mesh:null,doors:null};
+const TIPSOI_FARMS={plots:[],time:0,cropTimer:0,soil:null,crops:null,upper:null,legs:null,arms:null,tools:null,workers:[]};
+const ruralKey=(x,z)=>Math.floor(x/32)+','+Math.floor(z/32);
+function ruralSegmentDistance(x,z,a,b){const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));return {d:Math.hypot(x-a.x-dx*t,z-a.z-dz*t),t};}
+function ruralGround(x,z){const n=nearestRoad(x,z,2);return Math.max(surfaceY0(x,z,n),apronY(x,z));}
+function ruralGridAdd(grid,item,x0,z0,x1,z1){for(let z=Math.floor(z0/32);z<=Math.floor(z1/32);z++)for(let x=Math.floor(x0/32);x<=Math.floor(x1/32);x++){const k=x+','+z;if(!grid.has(k))grid.set(k,[]);grid.get(k).push(item);}}
+function accessRoadAt(x,z,padding=0){const radius=Math.ceil(Math.max(0,padding-10)/32),cx=Math.floor(x/32),cz=Math.floor(z/32);let best=null;for(let j=-radius;j<=radius;j++)for(let i=-radius;i<=radius;i++){const list=TIPSOI_ACCESS.grid.get((cx+i)+','+(cz+j));if(!list)continue;for(const s of list){const q=ruralSegmentDistance(x,z,s.a,s.b);if(q.d<s.hw+padding&&(!best||q.d<best.d))best={d:q.d,y:s.a.y+(s.b.y-s.a.y)*q.t,road:{id:'A',name:'Building access road · সংযোগ সড়ক',narrow:false}};}}return best;}
+function ruralBuildingAt(x,z,padding=0){const radius=Math.ceil(padding/32),cx=Math.floor(x/32),cz=Math.floor(z/32);for(let j=-radius;j<=radius;j++)for(let i=-radius;i<=radius;i++){const list=TIPSOI_ACCESS.buildingGrid.get((cx+i)+','+(cz+j));if(list)for(const b of list)if(Math.hypot(x-b.x,z-b.z)<b.radius+padding)return true;}return false;}
+function farmPlotAt(x,z,padding=0){for(const p of TIPSOI_FARMS.plots){const dx=x-p.x,dz=z-p.z,u=dx*p.tx+dz*p.tz,v=dx*p.tz-dz*p.tx;if(Math.abs(u)<p.length/2+padding&&Math.abs(v)<p.width/2+padding)return true;}return false;}
+function ruralVegetationBlocked(x,z,padding=8){return !!accessRoadAt(x,z,padding)||farmPlotAt(x,z,padding);}
+function reserveBuildingAccess(x,z,w,d,n){
+  if(n.ri<0||n.d>310||ruralBuildingAt(x,z,Math.hypot(w,d)/2+4))return null;
+  // Leave existing approaches open when placing later buildings.
+  const radius=Math.hypot(w,d)/2;
+  for(let a=0;a<8;a++){const t=a*Math.PI/4;if(accessRoadAt(x+Math.cos(t)*radius,z+Math.sin(t)*radius,4))return null;}
+  if(accessRoadAt(x,z,radius+4))return null;
+  const road=RD[n.ri],a={x:road.xs[n.s]+(road.xs[n.s+1]-road.xs[n.s])*n.t,z:road.zs[n.s]+(road.zs[n.s+1]-road.zs[n.s])*n.t};
+  const length=Math.hypot(x-a.x,z-a.z);if(length<d/2+road.hw+5)return null;
+  const tx=(x-a.x)/length,tz=(z-a.z)/length;
+  const start={x:a.x+tx*(road.hw-.3),z:a.z+tz*(road.hw-.3)},end={x:x-tx*(d/2+.9),z:z-tz*(d/2+.9)};
+  const points=[],steps=Math.max(2,Math.ceil(Math.hypot(end.x-start.x,end.z-start.z)/5));
+  for(let k=0;k<=steps;k++){const t=k/steps,px=start.x+(end.x-start.x)*t,pz=start.z+(end.z-start.z)*t;if(isWater(px,pz)||ruralBuildingAt(px,pz,3.3)||siteBlocksPoint(nearestRoad(px,pz,2),px,pz))return null;points.push({x:px,z:pz,y:ruralGround(px,pz)+.075});}
+  const b={x,z,radius,w,d,y:ruralGround(x,z),yaw:Math.atan2(-tx,-tz),entrance:end};TIPSOI_ACCESS.buildings.push(b);ruralGridAdd(TIPSOI_ACCESS.buildingGrid,b,x-radius-5,z-radius-5,x+radius+5,z+radius+5);
+  TIPSOI_ACCESS.paths.push(points);
+  for(let k=1;k<points.length;k++){const s={a:points[k-1],b:points[k],hw:2.8};TIPSOI_ACCESS.segments.push(s);ruralGridAdd(TIPSOI_ACCESS.grid,s,Math.min(s.a.x,s.b.x)-14,Math.min(s.a.z,s.b.z)-14,Math.max(s.a.x,s.b.x)+14,Math.max(s.a.z,s.b.z)+14);}
+  return b;
+}
+function planTipsoiBuildings(cx,cz,okLand){
+  TIPSOI_ACCESS.paths=[];TIPSOI_ACCESS.segments=[];TIPSOI_ACCESS.grid.clear();TIPSOI_ACCESS.buildings=[];TIPSOI_ACCESS.buildingGrid.clear();TIPSOI_FARMS.plots=[];
+  for(let j=cz-CR;j<=cz+CR;j++)for(let i=cx-CR;i<=cx+CR;i++){
+    const x0=-W/2+i*CELL,z0=-H/2+j*CELL,[sun_,haor,city]=zoneAt(x0+80,z0+80);let cityR=0;
+    if(city>.05){let bd=1e9;for(const c of CITY){const q=Math.hypot(c.x-x0,c.z-z0)/c.r;if(q<bd){bd=q;cityR=c.r;}}}
+    const tallMax=Math.max(0,Math.min(1,(cityR-90)/450))*75,hill=Math.min(1,Math.max(0,heightAt(x0+80,z0+80)/20)),nBld=Math.round(Math.pow(city,1.4)*30);
+    for(let k=0;k<nBld&&V.nb<MAX_BLD;k++){
+      const r1=hash3(i,j,k*3+101),r2=hash3(i,j,k*3+102),r3=hash3(i,j,k*3+103),x=x0+r1*CELL,z=z0+r2*CELL,w=8+r3*14,d=8+hash3(i,j,k+211)*14;
+      const n=okLand(x,z,Math.max(w,d)*.75+8);if(!n||tipsoiBillboardClearance(x,z,Math.hypot(w,d)/2+22))continue;
+      const b=reserveBuildingAccess(x,z,w,d,n);if(!b)continue;const tall=city>.5?Math.pow(hash3(i,j,k+307),2.2)*tallMax*city:0,h=4+r3*(cityR>120?12:7)+tall;
+      _q.setFromAxisAngle(_Y,b.yaw);obBox(x,z,w/2,d/2,b.yaw,'wall');_p.set(x,b.y-.5,z);_s.set(w,h+.5,d);_m.compose(_p,_q,_s);bldIM.setMatrixAt(V.nb,_m);_c.set(BLD_COLS[Math.floor(hash3(i,j,k+503)*BLD_COLS.length)]);bldIM.setColorAt(V.nb++,_c);
+    }
+    if(sun_<.3&&hill<.5&&city<.3)for(let k=0;k<Math.floor(hash3(i,j,61)*4)&&V.nhut<MAX_HUT;k++){
+      const x=x0+hash3(i,j,71+k)*CELL,z=z0+hash3(i,j,81+k)*CELL;if(vnoise(x/120,z/120)<.55)continue;const n=okLand(x,z,0,14);if(!n)continue;const sc=.9+hash3(i,j,95+k)*.35;
+      const b=reserveBuildingAccess(x,z,5.6*sc,4.6*sc,n);if(!b)continue;putInst(hutIM,'nhut',MAX_HUT,x,b.y,z,b.yaw,sc,.82+hash3(i,j,97+k)*.25);obBox(x,z,2.8*sc,2.3*sc,b.yaw,'house');
+    }
+  }
+  planTipsoiFarms();
+}
+function ruralGeometry(positions,uv){const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.computeVertexNormals();return g;}
+function ruralQuad(P,U,a,b,c,d,repeat=1){for(const [p,u,v] of [[a,0,0],[b,1,0],[c,0,repeat],[b,1,0],[d,1,repeat],[c,0,repeat]]){P.push(...p);U.push(u,v);}}
+function buildTipsoiAccessGeometry(){
+  if(!TIPSOI_ACCESS.mesh)return;const P=[],U=[];
+  for(const s of TIPSOI_ACCESS.segments){const dx=s.b.x-s.a.x,dz=s.b.z-s.a.z,L=Math.hypot(dx,dz),nx=dz/L*s.hw,nz=-dx/L*s.hw;
+    ruralQuad(P,U,[s.a.x+nx,s.a.y,s.a.z+nz],[s.a.x-nx,s.a.y,s.a.z-nz],[s.b.x+nx,s.b.y,s.b.z+nz],[s.b.x-nx,s.b.y,s.b.z-nz],L/5);}
+  TIPSOI_ACCESS.mesh.geometry.dispose();TIPSOI_ACCESS.mesh.geometry=ruralGeometry(P,U);
+  const m=new THREE.Matrix4(),q=new THREE.Quaternion(),v=new THREE.Vector3(),scale=new THREE.Vector3();let count=0;
+  for(const b of TIPSOI_ACCESS.buildings){q.setFromAxisAngle(new THREE.Vector3(0,1,0),b.yaw);v.set(b.entrance.x,b.y+1.3,b.entrance.z);m.compose(v,q,scale.set(1.4,2.6,.14));TIPSOI_ACCESS.doors.setMatrixAt(count++,m);}
+  TIPSOI_ACCESS.doors.count=count;TIPSOI_ACCESS.doors.instanceMatrix.needsUpdate=true;
+  const cv=document.getElementById('gl');cv.dataset.accessRoads=TIPSOI_ACCESS.paths.length;cv.dataset.connectedBuildings=TIPSOI_ACCESS.buildings.length;
+}
+function planTipsoiFarms(){
+  const candidates=[];
+  for(let ri=0;ri<RD.length;ri++){const r=RD[ri];for(let s=3;s<r.N-3;s+=4){if(r.br[s]>.05||r.wet[s])continue;const distance=Math.hypot(r.xs[s]-st.x,r.zs[s]-st.z);if(distance>650)continue;
+    if(Math.floor(r.cum[s]/70)%2)continue;for(const side of [-1,1]){const off=r.hw+22+hash2(ri,s)*8,x=r.xs[s]+r.tz[s]*side*off,z=r.zs[s]-r.tx[s]*side*off;
+      candidates.push({x,z,tx:r.tx[s],tz:r.tz[s],yaw:Math.atan2(r.tx[s],r.tz[s]),length:30+hash2(s,ri)*12,width:20,seed:ri*991+s*7+side,distance});}}
+  }
+  candidates.sort((a,b)=>a.distance-b.distance);
+  for(const p of candidates){if(TIPSOI_FARMS.plots.length>=24)break;const zone=zoneAt(p.x,p.z);if(zone[0]>.3||zone[1]>.6||zone[2]>.85||farmPlotAt(p.x,p.z,16))continue;let good=true,minY=1e9,maxY=-1e9;
+    for(const u of [-.5,-.25,0,.25,.5])for(const v of [-.5,0,.5]){const x=p.x+p.tx*u*p.length+p.tz*v*p.width,z=p.z+p.tz*u*p.length-p.tx*v*p.width,n=nearestRoad(x,z,2),y=ruralGround(x,z);
+      if(isWater(x,z)||maskAt(x,z)<140||maskAt(x,z)>200||n.d<n.hw+6||accessRoadAt(x,z,5)||ruralBuildingAt(x,z,7)||siteBlocksPoint(n,x,z)||raAt(x,z,8)||endBlocks(x,z)){good=false;break;}minY=Math.min(minY,y);maxY=Math.max(maxY,y);}
+    if(good&&maxY-minY<2.2){p.rows=Math.floor(p.width/1.5);p.cols=Math.floor(p.length/1.7);TIPSOI_FARMS.plots.push(p);}
+  }
+}
+function upgradeTipsoiRural(){
+  const make=(g,m,n)=>{const o=new THREE.InstancedMesh(g,m,n);o.count=0;o.frustumCulled=false;scene.add(o);return o;};
+  const gravel=sceneryTexture((g,s)=>{g.fillStyle='#8c887e';g.fillRect(0,0,s,s);detailNoise(g,s,52,4500);g.fillStyle='#b3afa3';g.fillRect(0,0,5,s);g.fillRect(s-5,0,5,s);});
+  TIPSOI_ACCESS.mesh=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshLambertMaterial({map:gravel,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-1}));TIPSOI_ACCESS.mesh.receiveShadow=true;TIPSOI_ACCESS.mesh.frustumCulled=false;scene.add(TIPSOI_ACCESS.mesh);
+  TIPSOI_ACCESS.doors=make(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial({color:'#35454d'}),MAX_BLD+MAX_HUT);
+  const soil=sceneryTexture((g,s)=>{g.fillStyle='#6c593b';g.fillRect(0,0,s,s);detailNoise(g,s,53,5000);for(let y=0;y<s;y+=24){g.fillStyle='#998058';g.fillRect(0,y,s,7);g.fillStyle='#504630';g.fillRect(0,y+8,s,3);}});
+  TIPSOI_FARMS.soil=new THREE.Mesh(new THREE.BufferGeometry(),new THREE.MeshLambertMaterial({map:soil,side:THREE.DoubleSide}));TIPSOI_FARMS.soil.receiveShadow=true;TIPSOI_FARMS.soil.frustumCulled=false;scene.add(TIPSOI_FARMS.soil);
+  const cropTex=sceneryTexture((g,s)=>{g.clearRect(0,0,s,s);for(let k=0;k<17;k++){const x=s/2+(hash2(k,8)-.5)*80,h=80+hash2(k,3)*145;g.strokeStyle=k%3?'#e1e5b5':'#bbc99c';g.lineWidth=2.5;g.beginPath();g.moveTo(x,s);g.quadraticCurveTo(x-20,s-h*.5,x+(k%2?34:-34),s-h);g.stroke();for(let j=1;j<4;j++){const y=s-h*j/4;g.beginPath();g.moveTo(x,y+28);g.quadraticCurveTo(x+(k%2?42:-42),y-18,x+(k%2?62:-62),y-10);g.stroke();}g.fillStyle='#ded09b';g.beginPath();g.ellipse(x+(k%2?34:-34),s-h,3,12,.4,0,Math.PI*2);g.fill();}});
+  const blades=[];for(let k=0;k<4;k++){const g=new THREE.PlaneGeometry(.75,1.15);g.translate(0,.575,0);g.rotateY(k*Math.PI/4);blades.push(g);}
+  TIPSOI_FARMS.crops=make(combineSceneryGeometries(blades),new THREE.MeshLambertMaterial({map:cropTex,alphaTest:.4,side:THREE.DoubleSide}),6500);TIPSOI_FARMS.crops.receiveShadow=true;
+  const upper=new GB();upper.box(.4,.55,.23,0,.3,0,'#ded1ae');upper.ball(.135,0,.83,0,'#9f6c49');upper.cyl(.24,.035,0,1.0,0,'#bea570',12);upper.cone(.18,.13,0,1.075,0,'#c9b27a',10);
+  const legs=new GB();legs.box(.37,.62,.27,0,.52,0,'#425d6c');for(const x of [-.11,.11]){legs.box(.12,.25,.12,x,.16,0,'#9a6a45');legs.box(.13,.07,.23,x,.035,.04,'#5c4b36');}
+  const hoe=new GB();hoe.cyl(.018,1.2,0,.6,0,'#987349',6);hoe.box(.23,.045,.25,0,.04,.1,'#686e6b');
+  TIPSOI_FARMS.upper=make(upper.geometry(),new THREE.MeshLambertMaterial({vertexColors:true}),48);TIPSOI_FARMS.legs=make(legs.geometry(),new THREE.MeshLambertMaterial({vertexColors:true}),48);
+  TIPSOI_FARMS.arms=make(new THREE.CylinderGeometry(.047,.05,1,6),new THREE.MeshLambertMaterial({color:'#9f6c49'}),96);TIPSOI_FARMS.tools=make(hoe.geometry(),new THREE.MeshLambertMaterial({vertexColors:true}),48);
+  TIPSOI_FARMS.upper.castShadow=TIPSOI_FARMS.legs.castShadow=true;
+}
+function rebuildTipsoiFarms(){
+  if(!TIPSOI_FARMS.soil)return;const P=[],U=[];TIPSOI_FARMS.workers=[];
+  for(const p of TIPSOI_FARMS.plots){const pos=(u,v)=>{const x=p.x+p.tx*u+p.tz*v,z=p.z+p.tz*u-p.tx*v;return [x,ruralGround(x,z)+.035,z];};
+    for(let u=-p.length/2;u<p.length/2;u+=4)for(let v=-p.width/2;v<p.width/2;v+=4)ruralQuad(P,U,pos(u,v),pos(u,Math.min(v+4,p.width/2)),pos(Math.min(u+4,p.length/2),v),pos(Math.min(u+4,p.length/2),Math.min(v+4,p.width/2)),1);
+    p.clumps=[];for(let row=0;row<p.rows;row++)for(let col=0;col<p.cols;col++){const u=(col+.5)/p.cols*p.length-p.length/2,w=(row+.5)/p.rows*p.width-p.width/2,x=p.x+p.tx*u+p.tz*w,z=p.z+p.tz*u-p.tx*w;p.clumps.push({x,z,y:ruralGround(x,z)+.05,yaw:hash2(col+row*31,p.seed)*Math.PI});}
+    for(let k=0;k<2;k++)TIPSOI_FARMS.workers.push({plot:p,phase:hash2(p.seed,k+3)*6.28,lane:(k?1:-1)*p.width*.23,seed:p.seed+k*19});
+  }
+  TIPSOI_FARMS.soil.geometry.dispose();TIPSOI_FARMS.soil.geometry=ruralGeometry(P,U);TIPSOI_FARMS.cropTimer=0;updateTipsoiFarming(0);
+  const cv=document.getElementById('gl');cv.dataset.farmPlots=TIPSOI_FARMS.plots.length;cv.dataset.farmers=TIPSOI_FARMS.workers.length;
+}
+function updateTipsoiFarming(dt){
+  if(!TIPSOI_FARMS.crops)return;TIPSOI_FARMS.time+=dt;TIPSOI_FARMS.cropTimer-=dt;
+  const time=TIPSOI_FARMS.time,m=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),v=new THREE.Vector3(),s=new THREE.Vector3(),base=new THREE.Matrix4(),local=new THREE.Matrix4();
+  if(TIPSOI_FARMS.cropTimer<=0){TIPSOI_FARMS.cropTimer=2;let n=0;
+    for(const p of TIPSOI_FARMS.plots){const growth=(time/180+hash2(p.seed,92))%1,h=growth>.92?.12:.18+Math.min(1,growth/.8)*.9,color=new THREE.Color().setHSL(growth>.7?.135:.23,growth>.7?.47:.43,growth>.7?.44:.27);
+      for(const c of p.clumps){if(n>=6500)break;q.setFromAxisAngle(new THREE.Vector3(0,1,0),c.yaw);m.compose(v.set(c.x,c.y,c.z),q,s.set(.85,h,.85));TIPSOI_FARMS.crops.setMatrixAt(n,m);TIPSOI_FARMS.crops.setColorAt(n++,color);}}
+    TIPSOI_FARMS.crops.count=n;TIPSOI_FARMS.crops.instanceMatrix.needsUpdate=true;if(TIPSOI_FARMS.crops.instanceColor)TIPSOI_FARMS.crops.instanceColor.needsUpdate=true;document.getElementById('gl').dataset.cropClumps=n;
+  }
+  let i=0;for(const worker of TIPSOI_FARMS.workers){const p=worker.plot,t=time*.75+worker.phase,travel=Math.sin(time*.045+worker.phase)*p.length*.34,x=p.x+p.tx*travel+p.tz*worker.lane,z=p.z+p.tz*travel-p.tx*worker.lane,y=ruralGround(x,z),yaw=p.yaw+(Math.cos(time*.045+worker.phase)<0?Math.PI:0),bend=.3+.5*(.5+.5*Math.sin(t));
+    q.setFromEuler(e.set(0,yaw,0));base.compose(v.set(x,y,z),q,s.set(1,1,1));TIPSOI_FARMS.legs.setMatrixAt(i,base);
+    q.setFromEuler(e.set(bend,0,0));local.compose(v.set(0,.85,0),q,s.set(1,1,1));m.multiplyMatrices(base,local);TIPSOI_FARMS.upper.setMatrixAt(i,m);
+    q.setFromEuler(e.set(.2+.3*Math.sin(t),0,0));local.compose(v.set(.2,.05,.48),q,s.set(1,1,1));m.multiplyMatrices(base,local);TIPSOI_FARMS.tools.setMatrixAt(i,m);
+    for(const side of [-1,1]){const a=new THREE.Vector3(side*.25,1.28,.1),b=new THREE.Vector3(side*.1,.8+.1*Math.sin(t),.53),direction=b.clone().sub(a),length=direction.length();q.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());local.compose(a.add(b).multiplyScalar(.5),q,s.set(1,length,1));m.multiplyMatrices(base,local);TIPSOI_FARMS.arms.setMatrixAt(i*2+(side>0?1:0),m);}i++;
+  }
+  for(const [mesh,count] of [[TIPSOI_FARMS.upper,i],[TIPSOI_FARMS.legs,i],[TIPSOI_FARMS.tools,i],[TIPSOI_FARMS.arms,i*2]]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;}
+}
+
 const BD_RINGS = [[[92.577,21.977],[92.595,21.886],[92.577,21.734],[92.591,21.471],[92.602,21.42],[92.642,21.309],[92.634,21.282],[92.591,21.25],[92.57,21.248],[92.559,21.26],[92.544,21.321],[92.523,21.361],[92.498,21.366],[92.465,21.359],[92.422,21.364],[92.39,21.376],[92.375,21.402],[92.368,21.435],[92.354,21.452],[92.321,21.462],[92.285,21.418],[92.235,21.417],[92.224,21.398],[92.213,21.354],[92.177,21.3],[92.184,21.221],[92.174,21.175],[92.188,21.145],[92.213,21.123],[92.224,21.093],[92.264,21.06],[92.256,20.981],[92.26,20.941],[92.271,20.903],[92.307,20.853],[92.307,20.833],[92.336,20.757],[92.336,20.746],[92.325,20.738],[92.3,20.762],[92.278,20.814],[92.21,20.93],[92.188,21.006],[92.134,21.047],[92.098,21.106],[92.051,21.155],[92.044,21.17],[92.051,21.28],[91.99,21.395],[91.968,21.41],[91.954,21.442],[91.95,21.459],[91.965,21.452],[91.983,21.489],[92.001,21.5],[92.019,21.493],[92.004,21.505],[91.99,21.543],[91.99,21.562],[92.022,21.599],[92.019,21.616],[92.037,21.64],[92.037,21.668],[92.022,21.677],[92.03,21.695],[92.026,21.712],[92.012,21.665],[92.001,21.65],[91.983,21.65],[91.976,21.662],[91.983,21.706],[91.976,21.706],[91.972,21.689],[91.961,21.69],[91.954,21.702],[91.954,21.738],[91.976,21.746],[91.99,21.76],[91.983,21.766],[91.968,21.756],[91.961,21.765],[91.968,21.778],[91.99,21.788],[91.99,21.795],[91.943,21.792],[91.907,21.782],[91.9,21.79],[91.9,21.814],[91.911,21.834],[91.929,21.844],[91.922,21.854],[91.925,21.863],[91.95,21.876],[91.95,21.885],[91.929,21.879],[91.914,21.863],[91.9,21.945],[91.882,21.969],[91.882,22.008],[91.857,22.109],[91.853,22.143],[91.868,22.138],[91.86,22.151],[91.853,22.148],[91.846,22.136],[91.846,22.118],[91.839,22.118],[91.814,22.18],[91.817,22.221],[91.835,22.237],[91.839,22.263],[91.814,22.281],[91.81,22.307],[91.875,22.335],[91.907,22.425],[91.889,22.425],[91.875,22.371],[91.878,22.364],[91.792,22.302],[91.796,22.286],[91.828,22.268],[91.824,22.249],[91.81,22.236],[91.788,22.237],[91.77,22.261],[91.756,22.374],[91.745,22.411],[91.677,22.535],[91.547,22.7],[91.515,22.712],[91.475,22.761],[91.468,22.758],[91.461,22.763],[91.457,22.796],[91.468,22.81],[91.49,22.881],[91.49,22.904],[91.482,22.904],[91.461,22.833],[91.454,22.823],[91.432,22.817],[91.418,22.8],[91.41,22.778],[91.414,22.754],[91.385,22.771],[91.346,22.774],[91.346,22.768],[91.367,22.761],[91.371,22.752],[91.36,22.744],[91.292,22.739],[91.331,22.72],[91.331,22.705],[91.317,22.697],[91.284,22.692],[91.245,22.698],[91.245,22.72],[91.184,22.727],[91.198,22.698],[91.191,22.692],[91.169,22.692],[91.169,22.685],[91.252,22.661],[91.263,22.641],[91.263,22.627],[91.252,22.614],[91.241,22.575],[91.202,22.543],[91.126,22.528],[91.09,22.545],[91.068,22.572],[91.058,22.614],[91.018,22.683],[91.004,22.678],[91.032,22.638],[91.04,22.589],[91.018,22.579],[90.986,22.575],[90.957,22.575],[90.942,22.585],[90.935,22.6],[90.91,22.617],[90.885,22.655],[90.878,22.683],[90.834,22.685],[90.82,22.727],[90.795,22.741],[90.77,22.785],[90.752,22.857],[90.726,22.906],[90.719,22.94],[90.64,23.038],[90.629,23.065],[90.626,23.087],[90.64,23.148],[90.64,23.188],[90.665,23.249],[90.662,23.267],[90.669,23.267],[90.651,23.3],[90.651,23.313],[90.662,23.321],[90.654,23.323],[90.654,23.33],[90.629,23.321],[90.611,23.342],[90.6,23.372],[90.6,23.45],[90.608,23.473],[90.633,23.487],[90.69,23.487],[90.716,23.499],[90.716,23.536],[90.705,23.555],[90.68,23.555],[90.676,23.551],[90.683,23.541],[90.701,23.529],[90.694,23.507],[90.68,23.517],[90.665,23.517],[90.608,23.49],[90.59,23.534],[90.593,23.563],[90.608,23.587],[90.633,23.597],[90.626,23.603],[90.618,23.597],[90.611,23.607],[90.557,23.59],[90.564,23.576],[90.561,23.568],[90.546,23.563],[90.514,23.563],[90.478,23.583],[90.485,23.568],[90.514,23.551],[90.568,23.548],[90.575,23.539],[90.579,23.45],[90.554,23.401],[90.554,23.386],[90.518,23.397],[90.323,23.433],[90.284,23.446],[90.251,23.467],[90.258,23.445],[90.406,23.36],[90.428,23.327],[90.503,23.301],[90.568,23.294],[90.608,23.247],[90.615,23.195],[90.593,23.22],[90.604,23.141],[90.6,23.117],[90.572,23.082],[90.554,23.078],[90.55,23.087],[90.564,23.104],[90.564,23.11],[90.557,23.11],[90.536,23.087],[90.521,23.08],[90.453,23.072],[90.449,23.056],[90.453,23.028],[90.467,22.996],[90.51,22.937],[90.51,22.918],[90.521,22.916],[90.536,22.903],[90.536,22.888],[90.521,22.881],[90.478,22.884],[90.456,22.862],[90.449,22.828],[90.435,22.801],[90.41,22.795],[90.424,22.781],[90.42,22.768],[90.406,22.763],[90.395,22.774],[90.374,22.761],[90.435,22.734],[90.446,22.752],[90.478,22.736],[90.489,22.72],[90.496,22.678],[90.51,22.646],[90.51,22.604],[90.492,22.589],[90.467,22.585],[90.453,22.565],[90.442,22.494],[90.464,22.521],[90.46,22.552],[90.471,22.575],[90.507,22.587],[90.525,22.584],[90.561,22.562],[90.608,22.465],[90.586,22.474],[90.586,22.45],[90.615,22.396],[90.618,22.356],[90.615,22.315],[90.582,22.237],[90.557,22.204],[90.5,22.177],[90.489,22.138],[90.46,22.092],[90.438,22.075],[90.41,22.085],[90.388,22.102],[90.392,22.128],[90.417,22.175],[90.42,22.199],[90.41,22.227],[90.41,22.285],[90.395,22.288],[90.399,22.268],[90.388,22.224],[90.392,22.209],[90.41,22.195],[90.413,22.178],[90.399,22.163],[90.392,22.143],[90.381,22.143],[90.366,22.08],[90.334,22.042],[90.309,21.984],[90.302,21.928],[90.284,21.871],[90.219,21.814],[90.204,21.805],[90.165,21.803],[90.093,21.83],[90.089,21.847],[90.096,21.859],[90.111,21.856],[90.104,21.871],[90.122,21.89],[90.125,21.932],[90.1,21.878],[90.078,21.868],[90.068,21.854],[90.057,21.849],[90.024,21.863],[90.035,21.944],[90.046,21.966],[90.078,21.988],[90.096,22.04],[90.147,22.089],[90.158,22.107],[90.172,22.118],[90.194,22.109],[90.215,22.123],[90.233,22.146],[90.24,22.172],[90.237,22.199],[90.204,22.133],[90.19,22.123],[90.147,22.111],[90.089,22.052],[90.053,21.989],[90.028,21.988],[89.995,22.001],[90.01,22.042],[90.035,22.06],[90.035,22.106],[90.042,22.131],[90.071,22.151],[90.078,22.165],[90.053,22.155],[90.039,22.138],[90.024,22.089],[89.981,22.045],[89.985,21.999],[89.981,21.986],[89.967,21.974],[89.949,21.981],[89.934,21.998],[89.916,22.05],[89.913,22.136],[89.902,22.177],[89.902,22.202],[89.88,22.241],[89.877,22.275],[89.902,22.334],[90.01,22.491],[89.981,22.474],[89.949,22.44],[89.92,22.391],[89.902,22.396],[89.873,22.418],[89.884,22.364],[89.88,22.342],[89.837,22.268],[89.851,22.246],[89.862,22.21],[89.873,22.143],[89.873,22.092],[89.848,22.07],[89.797,22.075],[89.797,22.069],[89.837,22.05],[89.848,22.033],[89.851,22.001],[89.844,21.982],[89.887,21.9],[89.88,21.885],[89.851,21.878],[89.815,21.841],[89.787,21.829],[89.776,21.827],[89.765,21.847],[89.725,21.829],[89.707,21.83],[89.661,21.849],[89.653,21.879],[89.664,21.896],[89.646,21.925],[89.617,21.869],[89.671,21.803],[89.693,21.795],[89.7,21.785],[89.689,21.765],[89.668,21.751],[89.643,21.756],[89.632,21.765],[89.596,21.76],[89.592,21.754],[89.607,21.719],[89.589,21.7],[89.567,21.714],[89.538,21.754],[89.527,21.814],[89.531,21.836],[89.563,21.885],[89.563,21.972],[89.571,22.031],[89.607,22.112],[89.603,22.134],[89.567,22.188],[89.567,22.204],[89.599,22.241],[89.61,22.298],[89.625,22.335],[89.614,22.329],[89.581,22.278],[89.581,22.237],[89.56,22.224],[89.549,22.205],[89.549,22.192],[89.578,22.146],[89.578,22.101],[89.563,22.072],[89.553,21.994],[89.531,21.984],[89.524,21.999],[89.524,22.045],[89.538,22.089],[89.491,22.188],[89.488,22.209],[89.495,22.254],[89.484,22.295],[89.477,22.295],[89.466,22.229],[89.477,22.102],[89.484,22.102],[89.488,22.129],[89.495,22.136],[89.513,22.092],[89.517,22.067],[89.509,22.042],[89.488,22.031],[89.52,21.962],[89.513,21.91],[89.466,21.859],[89.466,21.782],[89.441,21.746],[89.405,21.717],[89.394,21.716],[89.369,21.743],[89.362,21.783],[89.365,21.829],[89.387,21.901],[89.383,21.922],[89.358,21.972],[89.351,21.972],[89.347,21.944],[89.358,21.918],[89.355,21.893],[89.322,21.854],[89.308,21.817],[89.297,21.809],[89.29,21.822],[89.283,21.822],[89.283,21.797],[89.293,21.758],[89.29,21.733],[89.272,21.699],[89.275,21.687],[89.297,21.679],[89.268,21.653],[89.229,21.645],[89.211,21.655],[89.203,21.673],[89.207,21.69],[89.221,21.709],[89.189,21.792],[89.189,21.812],[89.182,21.815],[89.153,21.787],[89.11,21.81],[89.081,21.898],[89.077,21.915],[89.092,22.001],[89.056,22.065],[89.063,22.111],[89.059,22.131],[89.077,22.151],[89.077,22.175],[89.063,22.212],[89.02,22.264],[89.009,22.286],[89.023,22.295],[89.005,22.322],[88.991,22.388],[88.991,22.406],[89.002,22.42],[88.998,22.452],[88.969,22.528],[88.926,22.548],[88.951,22.562],[88.955,22.585],[88.951,22.612],[88.93,22.658],[88.908,22.741],[88.937,22.783],[88.948,22.835],[88.944,22.849],[88.933,22.859],[88.905,22.867],[88.894,22.879],[88.872,22.926],[88.84,22.975],[88.851,23.075],[88.865,23.1],[88.955,23.183],[88.959,23.203],[88.919,23.208],[88.822,23.239],[88.775,23.222],[88.71,23.24],[88.696,23.252],[88.685,23.271],[88.685,23.293],[88.717,23.349],[88.768,23.467],[88.771,23.489],[88.757,23.499],[88.732,23.472],[88.721,23.468],[88.703,23.495],[88.649,23.534],[88.609,23.588],[88.57,23.592],[88.563,23.602],[88.566,23.629],[88.541,23.639],[88.563,23.74],[88.552,23.776],[88.573,23.806],[88.577,23.855],[88.595,23.867],[88.653,23.87],[88.714,23.924],[88.717,23.943],[88.703,23.995],[88.725,24.029],[88.725,24.039],[88.699,24.044],[88.699,24.056],[88.678,24.071],[88.678,24.154],[88.692,24.176],[88.732,24.189],[88.746,24.215],[88.75,24.223],[88.739,24.287],[88.714,24.316],[88.681,24.335],[88.66,24.338],[88.635,24.294],[88.613,24.292],[88.563,24.308],[88.476,24.316],[88.401,24.37],[88.138,24.495],[88.109,24.502],[88.084,24.542],[88.084,24.595],[88.066,24.613],[88.059,24.634],[88.023,24.645],[88.026,24.676],[88.048,24.711],[88.051,24.755],[88.077,24.762],[88.084,24.77],[88.087,24.796],[88.095,24.802],[88.109,24.801],[88.116,24.819],[88.141,24.845],[88.116,24.917],[88.163,24.941],[88.203,24.946],[88.231,24.919],[88.242,24.899],[88.242,24.88],[88.314,24.868],[88.321,24.875],[88.375,24.946],[88.39,24.995],[88.415,25.022],[88.426,25.051],[88.433,25.174],[88.44,25.189],[88.476,25.196],[88.559,25.17],[88.591,25.191],[88.635,25.192],[88.725,25.167],[88.786,25.16],[88.807,25.196],[88.818,25.198],[88.897,25.169],[88.923,25.167],[88.908,25.189],[88.926,25.192],[88.93,25.23],[88.984,25.275],[88.984,25.294],[88.977,25.302],[88.901,25.304],[88.879,25.324],[88.858,25.324],[88.843,25.333],[88.818,25.36],[88.811,25.388],[88.8,25.395],[88.815,25.437],[88.815,25.459],[88.771,25.501],[88.743,25.513],[88.743,25.495],[88.707,25.491],[88.667,25.463],[88.645,25.468],[88.595,25.495],[88.53,25.5],[88.512,25.523],[88.487,25.542],[88.476,25.562],[88.437,25.579],[88.422,25.593],[88.419,25.653],[88.393,25.68],[88.321,25.726],[88.26,25.789],[88.228,25.804],[88.181,25.792],[88.145,25.775],[88.127,25.775],[88.087,25.831],[88.073,25.908],[88.084,25.915],[88.105,25.979],[88.127,26.013],[88.152,26.032],[88.159,26.05],[88.141,26.076],[88.141,26.091],[88.163,26.14],[88.221,26.18],[88.325,26.216],[88.336,26.231],[88.336,26.282],[88.368,26.314],[88.415,26.341],[88.433,26.363],[88.447,26.354],[88.498,26.352],[88.476,26.432],[88.462,26.454],[88.354,26.484],[88.343,26.477],[88.336,26.449],[88.321,26.452],[88.314,26.466],[88.318,26.494],[88.332,26.515],[88.354,26.579],[88.386,26.624],[88.397,26.599],[88.397,26.559],[88.411,26.545],[88.462,26.528],[88.505,26.488],[88.527,26.476],[88.591,26.461],[88.613,26.43],[88.656,26.415],[88.649,26.398],[88.667,26.386],[88.667,26.368],[88.71,26.341],[88.714,26.329],[88.703,26.31],[88.645,26.277],[88.663,26.265],[88.746,26.292],[88.782,26.28],[88.807,26.233],[88.825,26.226],[88.84,26.233],[88.854,26.265],[88.876,26.278],[88.901,26.273],[88.948,26.233],[88.977,26.224],[89.02,26.234],[89.041,26.248],[89.034,26.266],[89.005,26.277],[89.009,26.297],[88.98,26.292],[88.966,26.329],[88.912,26.349],[88.89,26.369],[88.89,26.386],[88.912,26.422],[88.941,26.439],[88.987,26.413],[89.009,26.39],[89.045,26.381],[89.052,26.374],[89.056,26.347],[89.103,26.327],[89.103,26.314],[89.095,26.31],[89.07,26.314],[89.07,26.287],[89.103,26.226],[89.121,26.146],[89.131,26.133],[89.214,26.099],[89.236,26.059],[89.272,26.043],[89.297,26.018],[89.337,25.998],[89.351,25.996],[89.38,26.015],[89.391,26.015],[89.412,25.993],[89.491,25.998],[89.517,25.962],[89.542,25.959],[89.553,25.981],[89.549,25.995],[89.56,26.022],[89.603,26.055],[89.61,26.072],[89.603,26.084],[89.578,26.082],[89.567,26.087],[89.567,26.099],[89.603,26.121],[89.571,26.13],[89.563,26.143],[89.585,26.168],[89.614,26.163],[89.607,26.18],[89.607,26.211],[89.614,26.219],[89.635,26.226],[89.653,26.222],[89.657,26.16],[89.679,26.153],[89.707,26.155],[89.718,26.145],[89.729,26.114],[89.751,26.084],[89.747,26.059],[89.754,26.032],[89.79,25.988],[89.815,25.996],[89.83,25.979],[89.826,25.966],[89.79,25.949],[89.833,25.932],[89.83,25.908],[89.787,25.839],[89.783,25.814],[89.801,25.724],[89.833,25.635],[89.823,25.49],[89.794,25.375],[89.797,25.339],[89.819,25.285],[89.833,25.282],[89.869,25.295],[89.909,25.297],[90.129,25.211],[90.287,25.181],[90.366,25.15],[90.399,25.149],[90.503,25.169],[90.582,25.162],[90.622,25.172],[90.708,25.154],[90.737,25.169],[90.755,25.167],[90.795,25.145],[90.824,25.142],[91.137,25.191],[91.191,25.189],[91.234,25.203],[91.284,25.179],[91.432,25.138],[91.482,25.135],[91.522,25.145],[91.547,25.16],[91.565,25.16],[91.58,25.14],[91.598,25.128],[91.637,25.123],[91.662,25.127],[91.673,25.137],[91.677,25.152],[91.709,25.145],[91.731,25.167],[91.792,25.165],[91.9,25.177],[91.958,25.17],[92.001,25.182],[92.033,25.182],[92.094,25.165],[92.109,25.145],[92.123,25.137],[92.174,25.132],[92.21,25.098],[92.235,25.084],[92.303,25.074],[92.328,25.047],[92.382,25.024],[92.386,24.995],[92.411,24.988],[92.458,24.954],[92.451,24.946],[92.476,24.937],[92.494,24.895],[92.476,24.863],[92.382,24.836],[92.364,24.841],[92.357,24.853],[92.289,24.892],[92.253,24.904],[92.224,24.892],[92.217,24.875],[92.238,24.809],[92.235,24.777],[92.184,24.647],[92.17,24.574],[92.152,24.544],[92.112,24.514],[92.105,24.495],[92.112,24.434],[92.109,24.406],[92.087,24.382],[92.062,24.372],[92.033,24.368],[91.95,24.375],[91.95,24.363],[91.972,24.33],[91.972,24.316],[91.922,24.345],[91.9,24.338],[91.896,24.319],[91.907,24.26],[91.878,24.157],[91.864,24.151],[91.846,24.156],[91.814,24.183],[91.806,24.222],[91.734,24.235],[91.724,24.222],[91.734,24.164],[91.72,24.149],[91.702,24.142],[91.666,24.156],[91.641,24.211],[91.63,24.215],[91.623,24.203],[91.616,24.14],[91.598,24.105],[91.583,24.097],[91.518,24.085],[91.403,24.103],[91.364,24.1],[91.349,24.075],[91.349,24.036],[91.338,23.995],[91.328,23.988],[91.292,23.995],[91.274,23.988],[91.216,23.909],[91.212,23.88],[91.227,23.845],[91.227,23.826],[91.205,23.772],[91.194,23.755],[91.14,23.74],[91.133,23.72],[91.137,23.698],[91.169,23.685],[91.176,23.671],[91.166,23.654],[91.14,23.654],[91.14,23.612],[91.169,23.561],[91.194,23.495],[91.22,23.479],[91.23,23.462],[91.234,23.436],[91.259,23.374],[91.288,23.355],[91.266,23.33],[91.266,23.321],[91.277,23.303],[91.299,23.143],[91.313,23.1],[91.338,23.072],[91.371,23.063],[91.374,23.095],[91.356,23.18],[91.356,23.224],[91.36,23.247],[91.371,23.262],[91.396,23.262],[91.414,23.249],[91.436,23.215],[91.439,23.224],[91.446,23.215],[91.446,23.198],[91.464,23.185],[91.504,23.045],[91.518,23.034],[91.522,22.996],[91.536,22.982],[91.576,22.969],[91.587,22.945],[91.608,22.96],[91.616,22.979],[91.648,22.977],[91.706,22.996],[91.738,23.024],[91.756,23.048],[91.756,23.061],[91.778,23.065],[91.792,23.08],[91.796,23.09],[91.749,23.232],[91.745,23.273],[91.763,23.321],[91.817,23.401],[91.904,23.446],[91.94,23.495],[91.943,23.534],[91.914,23.651],[91.922,23.723],[91.936,23.723],[92.004,23.647],[92.019,23.641],[92.044,23.646],[92.109,23.718],[92.152,23.732],[92.17,23.703],[92.181,23.666],[92.195,23.647],[92.21,23.661],[92.22,23.708],[92.238,23.717],[92.26,23.706],[92.249,23.642],[92.253,23.609],[92.292,23.495],[92.296,23.446],[92.307,23.425],[92.321,23.413],[92.332,23.369],[92.35,23.354],[92.346,23.315],[92.357,23.279],[92.332,23.227],[92.328,23.171],[92.354,23.029],[92.354,22.96],[92.361,22.926],[92.379,22.901],[92.411,22.888],[92.426,22.871],[92.444,22.763],[92.48,22.725],[92.498,22.695],[92.501,22.56],[92.519,22.513],[92.577,22.168],[92.577,22.143],[92.548,22.138],[92.537,22.129]],[[91.936,21.76],[91.94,21.716],[91.976,21.648],[91.983,21.609],[91.972,21.523],[91.961,21.506],[91.896,21.506],[91.9,21.486],[91.878,21.481],[91.868,21.486],[91.857,21.513],[91.857,21.527],[91.871,21.548],[91.875,21.582],[91.85,21.689],[91.853,21.726],[91.871,21.754],[91.882,21.754],[91.896,21.743],[91.904,21.731],[91.889,21.699],[91.889,21.685],[91.904,21.702],[91.911,21.727],[91.9,21.775],[91.936,21.782]],[[89.117,21.782],[89.139,21.766],[89.146,21.739],[89.131,21.722],[89.103,21.736],[89.052,21.793],[89.063,21.822],[89.052,21.89],[89.045,21.917],[89.056,21.918],[89.067,21.91],[89.081,21.824],[89.092,21.793]],[[91.889,21.866],[91.842,21.736],[91.832,21.726],[91.824,21.743],[91.839,21.825],[91.832,21.876],[91.842,21.906],[91.868,21.932]],[[90.593,21.986],[90.593,21.966],[90.608,21.939],[90.59,21.935],[90.582,21.913],[90.564,21.918],[90.557,21.898],[90.521,21.861],[90.503,21.863],[90.503,21.869],[90.532,21.876],[90.51,21.898],[90.518,21.905],[90.514,21.922],[90.525,21.944]],[[90.334,21.939],[90.37,21.994],[90.395,22.001],[90.392,21.979],[90.366,21.939],[90.341,21.861],[90.334,21.849],[90.32,21.846],[90.323,21.917]],[[90.388,22.048],[90.381,22.023],[90.341,21.972],[90.359,22.023],[90.374,22.045]],[[90.435,22.042],[90.474,22.004],[90.485,21.977],[90.478,21.945],[90.417,21.9],[90.402,21.906],[90.395,21.939],[90.413,21.976],[90.417,22.038],[90.428,22.048]],[[90.543,22.062],[90.539,22.069],[90.485,22.035],[90.492,22.08],[90.503,22.096],[90.521,22.102],[90.561,22.138],[90.572,22.138],[90.593,22.16],[90.615,22.165],[90.593,22.102],[90.593,22.119],[90.586,22.131],[90.561,22.023],[90.539,22.001],[90.521,21.994],[90.503,22.011],[90.503,22.025]],[[90.942,22.205],[90.95,22.212],[90.957,22.199],[90.957,22.145],[90.95,22.121],[90.928,22.118],[90.921,22.133],[90.928,22.19],[90.935,22.212]],[[90.975,22.185],[90.982,22.259],[90.996,22.254],[90.996,22.236],[90.989,22.195]],[[90.953,22.227],[90.939,22.232],[90.939,22.248],[90.957,22.278],[90.96,22.324],[90.975,22.364],[90.986,22.356],[90.993,22.302],[90.989,22.281]],[[91.148,22.357],[91.155,22.332],[91.173,22.32],[91.187,22.227],[91.14,22.146],[91.108,22.121],[91.094,22.119],[91.083,22.101],[91.065,22.091],[91.022,22.096],[91.011,22.102],[91.004,22.118],[91.054,22.175],[91.068,22.241],[91.076,22.389],[91.094,22.391]],[[90.618,22.425],[90.6,22.43],[90.6,22.449],[90.615,22.449],[90.633,22.432],[90.658,22.379],[90.662,22.356],[90.651,22.376],[90.647,22.384],[90.64,22.366],[90.647,22.325],[90.64,22.308],[90.633,22.329],[90.633,22.349],[90.64,22.349]],[[90.647,22.425],[90.654,22.484],[90.662,22.481],[90.669,22.459],[90.669,22.438]],[[91.158,22.504],[91.202,22.514],[91.212,22.496],[91.202,22.472],[91.158,22.45],[91.133,22.45],[91.115,22.462],[91.122,22.489]],[[91.468,22.587],[91.558,22.479],[91.565,22.435],[91.554,22.401],[91.508,22.396],[91.475,22.413],[91.446,22.454],[91.428,22.492],[91.425,22.524],[91.446,22.577]],[[90.791,22.496],[90.856,22.435],[90.834,22.34],[90.838,22.178],[90.827,22.153],[90.773,22.075],[90.759,22.062],[90.752,22.075],[90.719,22.048],[90.69,22.008],[90.658,21.993],[90.647,21.994],[90.64,22.016],[90.683,22.102],[90.626,22.026],[90.611,22.025],[90.604,22.043],[90.608,22.072],[90.633,22.123],[90.622,22.145],[90.683,22.302],[90.683,22.445],[90.672,22.464],[90.658,22.524],[90.647,22.548],[90.633,22.562],[90.575,22.599],[90.557,22.602],[90.557,22.675],[90.579,22.758],[90.597,22.776],[90.651,22.788],[90.683,22.695],[90.716,22.638],[90.748,22.597],[90.766,22.518]],[[90.644,22.849],[90.68,22.808],[90.662,22.805],[90.59,22.813],[90.532,22.769],[90.528,22.744],[90.536,22.729],[90.521,22.712],[90.482,22.759],[90.456,22.768],[90.467,22.788],[90.464,22.833],[90.474,22.866],[90.485,22.871],[90.521,22.864],[90.539,22.867],[90.543,22.881],[90.593,22.882]],[[90.669,22.953],[90.633,22.953],[90.669,22.918],[90.626,22.925],[90.608,22.953],[90.586,22.96],[90.561,22.952],[90.525,22.953],[90.507,22.975],[90.528,23.007],[90.561,23.033],[90.586,23.034]],[[90.51,23.068],[90.518,23.06],[90.514,23.051],[90.471,23.007],[90.456,23.063]],[[90.525,23.321],[90.507,23.315],[90.467,23.332],[90.428,23.376],[90.431,23.386],[90.456,23.386],[90.539,23.35],[90.579,23.323],[90.586,23.301],[90.55,23.327],[90.528,23.333]]];
 // Geographic data (lon, lat). Widths in real metres.
 const CITIES = [
@@ -4548,7 +4664,7 @@ function buildRoadHeights() {
 // height of the ground surface anywhere, including road, shoulders, embankment slopes, bazaar walkways and station aprons
 function surfaceY(x, z, n) {
   if (!n) n = nearestRoad(x, z, 1);
-  return Math.max(surfaceY0(x, z, n), apronY(x, z));
+  const access = accessRoadAt(x, z); return Math.max(surfaceY0(x, z, n), apronY(x, z), access ? access.y : -Infinity);
 }
 function surfaceY0(x, z, n) {
   const g = Math.max(heightAt(x, z), -.2);
@@ -4674,7 +4790,7 @@ function buildVegetation() {
 }
 // a trunk leaning toward (dx, dz) by `lean` radians: used for the arching avenue trees
 const _UP = new THREE.Vector3(0, 1, 0), _LD = new THREE.Vector3();
-function putTrunkLean(x, y, z, dx, dz, lean, sx, h, col) { if (tipsoiBillboardClearance(x, z, 22)) return false;
+function putTrunkLean(x, y, z, dx, dz, lean, sx, h, col) { if (tipsoiBillboardClearance(x, z, 22) || ruralVegetationBlocked(x, z, 10)) return false;
   if (V.nt >= MAX_TRUNK) return false; _LD.set(dx * Math.sin(lean), Math.cos(lean), dz * Math.sin(lean)); _q.setFromUnitVectors(_UP, _LD);
   _p.set(x, y - .1, z); _s.set(sx, h + .1, sx); _m.compose(_p, _q, _s); trunkIM.setMatrixAt(V.nt, _m); trunkIM.setColorAt(V.nt++, _c.set(col)); return true;
 }
@@ -4702,8 +4818,8 @@ function archTree(r, s, ta, sd, rnd, rnd2, wide) {
   putCanopy(L3[0], L3[1] + .6, L3[2], 3.6 * k, 2.6 * k, 4.4 * k, rot + 1.1, hue - .01, .48, lit);
   putCanopy(T[0], T[1] + 1.4 * k, T[2], 3.4 * k, 2.4 * k, 4.6 * k, rot + 1.7, hue, .5, lit - .03);
 }
-function putTrunk(x, y, z, sx, h, col) { if (tipsoiBillboardClearance(x, z, 22)) return false; if (V.nt >= MAX_TRUNK) return false; if (sx >= .4) obTree(x, z, .26 * sx + .04); _q.identity(); _p.set(x, y - .1, z); _s.set(sx, h + .1, sx); _m.compose(_p, _q, _s); trunkIM.setMatrixAt(V.nt, _m); trunkIM.setColorAt(V.nt++, _c.set(col)); return true; }
-function putCanopy(x, y, z, sx, sy, sz, rot, hh, ss, ll) { if (tipsoiBillboardClearance(x, z, 22)) return; if (V.nr >= MAX_ROUND) return; _q.setFromAxisAngle(_Y, rot); _p.set(x, y, z); _s.set(sx, sy, sz); _m.compose(_p, _q, _s); roundIM.setMatrixAt(V.nr, _m); roundIM.setColorAt(V.nr++, _c.setHSL(hh, ss, ll)); }
+function putTrunk(x, y, z, sx, h, col) { if (tipsoiBillboardClearance(x, z, 22) || ruralVegetationBlocked(x, z, 10)) return false; if (V.nt >= MAX_TRUNK) return false; if (sx >= .4) obTree(x, z, .26 * sx + .04); _q.identity(); _p.set(x, y - .1, z); _s.set(sx, h + .1, sx); _m.compose(_p, _q, _s); trunkIM.setMatrixAt(V.nt, _m); trunkIM.setColorAt(V.nt++, _c.set(col)); return true; }
+function putCanopy(x, y, z, sx, sy, sz, rot, hh, ss, ll) { if (tipsoiBillboardClearance(x, z, 22) || ruralVegetationBlocked(x, z, 10)) return; if (V.nr >= MAX_ROUND) return; _q.setFromAxisAngle(_Y, rot); _p.set(x, y, z); _s.set(sx, sy, sz); _m.compose(_p, _q, _s); roundIM.setMatrixAt(V.nr, _m); roundIM.setColorAt(V.nr++, _c.setHSL(hh, ss, ll)); }
 function putPalm(x, y, z, h, sc, rot, hsl, tsx, tcol) {
   if (V.np >= MAX_PALM || !putTrunk(x, y, z, tsx, h, tcol)) return;
   _q.setFromAxisAngle(_Y, rot); _p.set(x, y + h, z); _s.set(sc, sc * .9, sc); _m.compose(_p, _q, _s); palmIM.setMatrixAt(V.np, _m); palmIM.setColorAt(V.np++, _c.setHSL(hsl[0], hsl[1], hsl[2]));
@@ -4711,7 +4827,7 @@ function putPalm(x, y, z, h, sc, rot, hsl, tsx, tcol) {
 function putInst(im, cnt, max, x, y, z, rot, sc, tint) {
   if (V[cnt] >= max) return; _q.setFromAxisAngle(_Y, rot); _p.set(x, y, z); _s.set(sc, sc, sc); _m.compose(_p, _q, _s); im.setMatrixAt(V[cnt], _m); if (tint !== undefined) im.setColorAt(V[cnt], _c.setRGB(tint, tint, tint)); V[cnt]++;
 }
-function plant(sp, x, z, rnd, y) { if (tipsoiBillboardClearance(x, z, 22)) return;
+function plant(sp, x, z, rnd, y) { if (tipsoiBillboardClearance(x, z, 22) || ruralVegetationBlocked(x, z, 10)) return;
   if (y === undefined) y = surfaceY(x, z);
   const r2 = fract(rnd * 7.13), r3 = fract(rnd * 13.7), rot = rnd * 6.283;
   switch (sp) {
@@ -4745,23 +4861,13 @@ function populate(cx, cz, force) {
   clearStreamedObstacles();
   // clear: absolute distance from the road centre; extra: distance beyond that road's shoulder instead
   function okLand(x, z, clear, extra) { const m = maskAt(x, z); if (m < 140 || m > 200) return null; const n = nearestRoad(x, z, 1); const lim = extra !== undefined && n.ri >= 0 ? RD[n.ri].shw + extra : clear; if (n.d < lim || siteBlocksPoint(n, x, z) || raAt(x, z, 8) || endBlocks(x, z)) return null; return n; }
+  planTipsoiBuildings(cx, cz, okLand);
   for (let j = cz - CR; j <= cz + CR; j++) for (let i = cx - CR; i <= cx + CR; i++) {
     const x0 = -W / 2 + i * CELL, z0 = -H / 2 + j * CELL; const [sun_, haor, city] = zoneAt(x0 + CELL / 2, z0 + CELL / 2);
     let cityR = 0; if (city > .05) { let bd = 1e9; for (const c of CITY) { const d = Math.hypot(c.x - x0, c.z - z0) / c.r; if (d < bd) { bd = d; cityR = c.r; } } }
     const tallMax = Math.max(0, Math.min(1, (cityR - 90) / 450)) * 75;
     const hill = Math.min(1, Math.max(0, heightAt(x0 + 80, z0 + 80) / 20));
-    // city buildings
-    const nBld = Math.round(Math.pow(city, 1.4) * 30);
-    for (let k = 0; k < nBld && V.nb < MAX_BLD; k++) {
-      const r1 = hash3(i, j, k * 3 + 101), r2 = hash3(i, j, k * 3 + 102), r3 = hash3(i, j, k * 3 + 103);
-      const x = x0 + r1 * CELL, z = z0 + r2 * CELL; const w = 8 + r3 * 14, d = 8 + hash3(i, j, k + 211) * 14;
-      const n = okLand(x, z, Math.max(w, d) * .75 + 8); if (!n) continue;
-      const tall = city > .5 ? Math.pow(hash3(i, j, k + 307), 2.2) * tallMax * city : 0;
-      const h = 4 + r3 * (cityR > 120 ? 12 : 7) + tall;
-      if (tipsoiBillboardClearance(x, z, Math.hypot(w, d) / 2 + 22)) continue; const bAng = Math.round(hash3(i, j, k + 401) * 4) * Math.PI / 2 + (hash3(i, j, k + 402) - .5) * .3; _q.setFromAxisAngle(_Y, bAng); obBox(x, z, w / 2, d / 2, bAng, 'wall');
-      _p.set(x, surfaceY(x, z, n) - .5, z); _s.set(w, h + .5, d); _m.compose(_p, _q, _s); bldIM.setMatrixAt(V.nb, _m);
-      _c.set(BLD_COLS[(hash3(i, j, k + 503) * BLD_COLS.length) | 0]); bldIM.setColorAt(V.nb++, _c);
-    }
+    // Buildings and approaches are planned before vegetation.
     // village clumps: trees and tin-roof houses in the fields
     const n0 = Math.round((8 + 30 * sun_ + 16 * hill + 5 * haor) * (1 - city * .9));
     for (let k = 0; k < n0; k++) {
@@ -4772,15 +4878,7 @@ function populate(cx, cz, force) {
       const sp = sun_ > .4 ? 'sundari' : hill > .3 ? HILL_SP[(r3 * HILL_SP.length) | 0] : VILLAGE_SP[(r3 * VILLAGE_SP.length) | 0];
       plant(sp, x, z, hash3(i, j, k + 999), surfaceY(x, z, n));
     }
-    if (sun_ < .3 && hill < .5 && city < .3) {
-      const nh = Math.floor(hash3(i, j, 61) * 4);
-      for (let k = 0; k < nh; k++) {
-        const x = x0 + hash3(i, j, 71 + k) * CELL, z = z0 + hash3(i, j, 81 + k) * CELL;
-        if (vnoise(x / 120, z / 120) < .55) continue;
-        const n = okLand(x, z, 0, 14); if (!n) continue;
-        { const rot = hash3(i, j, 91 + k) * 6.283, sc = .9 + hash3(i, j, 95 + k) * .35; putInst(hutIM, 'nhut', MAX_HUT, x, surfaceY(x, z, n), z, rot, sc, .82 + hash3(i, j, 97 + k) * .25); obBox(x, z, 2.8 * sc, 2.3 * sc, rot, 'house'); }
-      }
-    }
+    // Rural homes are included in the access-road plan.
     // a village at the end of a village road
     for (const D of DEAD_ENDS) {
       if (D.cx < x0 || D.cx >= x0 + CELL || D.cz < z0 || D.cz >= z0 + CELL) continue;
@@ -4831,6 +4929,7 @@ function populate(cx, cz, force) {
       if ((nearBridge || (run > 2.2 && hash2(ri * 7 + bolBlock, 9) < (r.narrow ? .6 : .35))) && cityZ < .5 && !siteOnRoad(r, sA, 15))
         for (const sd of [1, -1]) for (let k = 0; k < 2; k++) {
           const ta = k * .5, bx = r.xs[s] + (r.xs[i2] - r.xs[s]) * ta + r.tz[s] * sd * (r.hw + .45), bz = r.zs[s] + (r.zs[i2] - r.zs[s]) * ta - r.tx[s] * sd * (r.hw + .45);
+          if (accessRoadAt(bx, bz, 1)) continue;
           putInst(bolIM, 'nbol', MAX_BOL, bx, r.ys[s] + (r.ys[i2] - r.ys[s]) * ta - .1, bz, 0, 1); obSmall(bx, bz, .13, 'bollard');
         }
       // concrete electricity poles every third sample on one side, with three wires to the next pole
@@ -4839,6 +4938,7 @@ function populate(cx, cz, force) {
         if (r.br[s + 3] > .05 || r.wet[s + 3]) continue;
         const off = r.hw + 1.5, ax = r.xs[s] + r.tz[s] * sd * off, az = r.zs[s] - r.tx[s] * sd * off, ay = r.ys[s] - .1;
         const bx_ = r.xs[s + 3] + r.tz[s + 3] * sd * off, bz_ = r.zs[s + 3] - r.tx[s + 3] * sd * off, by = r.ys[s + 3] - .1;
+        if (accessRoadAt(ax, az, 1) || accessRoadAt(bx_, bz_, 1)) continue;
         putInst(poleIM, 'npole', MAX_POLE, ax, ay, az, Math.atan2(r.tx[s], r.tz[s]), 1); obSmall(ax, az, .17, 'pole');
         for (const [lat, hy] of [[-.7, 8.55], [.7, 8.55], [0, 9.1]]) {
           if (V.nwire >= MAX_WIRE) break;
@@ -4851,7 +4951,7 @@ function populate(cx, cz, force) {
   }
   trunkIM.count = V.nt; roundIM.count = V.nr; palmIM.count = V.np; bldIM.count = V.nb; banIM.count = V.nban; bamIM.count = V.nbam; poleIM.count = V.npole; wireIM.count = V.nwire; hutIM.count = V.nhut; bolIM.count = V.nbol; grassIM.count = V.ngr;
   [trunkIM, roundIM, palmIM, bldIM, banIM, bamIM, poleIM, wireIM, hutIM, bolIM, grassIM].forEach(o => { o.instanceMatrix.needsUpdate = true; if (o.instanceColor) o.instanceColor.needsUpdate = true; });
-  syncTipsoiArchitecture();
+  syncTipsoiArchitecture(); buildTipsoiAccessGeometry(); rebuildTipsoiFarms();
 }
 
 // ---------- shop signs and station signs (texture atlases) ----------
@@ -7526,8 +7626,8 @@ function toast(msg, warn) { const t = document.getElementById('toast'); t.classL
 
 function physics(dt) {
   const V = VEHICLES[vehKey];
-  const nr = nearestRoad(st.x, st.z, 1); const ra0 = raAt(st.x, st.z); const onRoad = nr.d < nr.hw + 1.5 || !!ra0;
-  const mud = !ra0 && onRoad && RD[nr.ri].narrow;
+  const nr = nearestRoad(st.x, st.z, 1); const ra0 = raAt(st.x, st.z); const access = accessRoadAt(st.x, st.z); const onRoad = nr.d < nr.hw + 1.5 || !!ra0 || !!access;
+  const mud = !access && !ra0 && onRoad && nr.ri >= 0 && RD[nr.ri].narrow;
   const fx = Math.sin(st.h), fz = Math.cos(st.h), rx = -fz, rz = fx; // r = right
   let s = st.vx * fx + st.vz * fz, l = st.vx * rx + st.vz * rz;
   const DF = damageFactors(dt), vmax = V.vmax * (onRoad ? (mud ? .7 : 1) : .5) * DF.vmax;
@@ -7586,7 +7686,7 @@ function physics(dt) {
   st.pitch += (-Math.atan2(hF - hB, 3.2) - st.pitch) * Math.min(1, dt * 10);
   st.roll += (Math.atan2(hL - hR, 1.8) - st.roll) * Math.min(1, dt * 10);   // rotateZ(+) lifts the left side, so the lower side drops
   st.odo += Math.abs(s2) * dt;
-  st.speed = s2; st.onRoad = onRoad; st.mud = mud; st.road = onRoad && nr.d < nr.hw + 1.5 ? RD[nr.ri] : null; st.ra = ra0;
+  st.speed = s2; st.onRoad = onRoad; st.mud = mud; st.road = onRoad && nr.d < nr.hw + 1.5 ? RD[nr.ri] : access ? access.road : null; st.ra = ra0;
   // wheels
   carParts.wheels.forEach(w => w.rotation.x += s2 * dt / V.wheelR);
   carParts.front.forEach(p => p.rotation.y = st.steer);
@@ -7674,7 +7774,7 @@ function frame(now) {
   } else if (attract) { updateTraffic(dt); updatePeople(dt); updateSignals(dt); }
   updateSuspension(paused ? 0 : dt);
   if (!paused) { updateSignals(dt); checkRedLight(dt); }
-  updateLamps(); updateTipsoiBoards(dt);
+  updateLamps(); updateTipsoiBoards(dt); updateTipsoiFarming(!paused || attract ? dt : 0);
   updateSites(dt || .016); updateEnds(dt || .016);
   car.position.set(st.x, st.y, st.z); car.rotation.set(0, 0, 0); car.rotateY(st.h); car.rotateX(st.pitch); car.rotateZ(st.roll);
   car.visible = !attract && (FC.on || !(st.cam === 2 && !cockpitActive()));
@@ -7883,7 +7983,7 @@ async function boot(saved) {
   await msg(24, 'নদী আর সীমানা আঁকছি…', 'Tracing the rivers and the border'); buildMask();
   await msg(36, 'হাইওয়ে আর সেতু বসাচ্ছি…', 'Laying highways and bridges'); buildRoadHeights();
   await msg(48, 'ধানক্ষেত রাঙাচ্ছি…', 'Painting the paddy fields'); const isTouch = document.body.classList.contains('touch'); const { tex } = buildGroundTexture(isTouch ? 2048 : 4096);
-  await msg(66, 'গ্রাম আর বাজার বসাচ্ছি…', 'Building villages and bazaars'); buildScene(tex); upgradeTipsoiScenery(); applyTipsoiQuality(); buildCar(); buildLabels(); buildTipsoiBoards();
+  await msg(66, 'গ্রাম আর বাজার বসাচ্ছি…', 'Building villages and bazaars'); buildScene(tex); upgradeTipsoiScenery(); upgradeTipsoiRural(); applyTipsoiQuality(); buildCar(); buildLabels(); buildTipsoiBoards();
   await msg(80, 'দোকানের সাইনবোর্ড লিখছি…', 'Painting the shop signs'); signAtlas();   // shop and station signs, drawn once while loading
   { // compile the bazaar and station materials now, not when the first bazaar appears
     const g = new THREE.BoxGeometry(.01, .01, .01); g.setAttribute('color', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 3).fill(1), 3));
