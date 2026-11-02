@@ -2,7 +2,7 @@
 // Neighborhood ordering: https://baperrasta.com/ (2026-11-02).
 // Scenery is rebuilt for this game's Three r128 world; no vehicles are imported.
 const DHAKA_LAYOUT=__DHAKA_LAYOUT__;
-const DHAKA={cx:0,cz:0,x0:-265,x1:335,z0:-485,z1:535,cols:[-3,-2,-1,0,1,2,3,4],rows:[],roads:[],group:null,buildings:0,entrances:[],metro:0,originalRoads:0,adSites:[],gates:[],exitGrid:new Map()};
+const DHAKA={cx:0,cz:0,x0:-265,x1:335,z0:-485,z1:535,cols:[-3,-2,-1,0,1,2,3,4],rows:[],roads:[],group:null,buildings:0,entrances:[],metro:0,originalRoads:0,adSites:[],gates:[],exitGrid:new Map(),treeSites:[]};
 const ROAD_ENTRANCES={grid:new Map()};
 function dhakaContains(x,z,margin=0){return x-DHAKA.cx>DHAKA.x0-margin&&x-DHAKA.cx<DHAKA.x1+margin&&z-DHAKA.cz>DHAKA.z0-margin&&z-DHAKA.cz<DHAKA.z1+margin;}
 function dhakaHeight(x,z){return Math.max(0,heightAt(x,z))+.34;}
@@ -75,7 +75,7 @@ function buildDhakaCity(){
   // Road surfaces share the engine's height field, traction and map routing.
   for(const r of DHAKA.roads){const strip=ribbon(r.xs,r.zs,()=>r.w,i=>r.ys[i]+.025,true,r.cum);for(let i=0;i<strip.uv.length;i+=2){strip.uv[i]*=r.w/7;strip.uv[i+1]*=3;}lanes.push(strip);if(r.axis!=='avenue'&&r.axis!=='street')continue;
     for(let s=0;s<r.N-1;s++){const x=(r.xs[s]+r.xs[s+1])/2,z=(r.zs[s]+r.zs[s+1])/2,y=(r.ys[s]+r.ys[s+1])/2,along=r.cum[s],L=r.cum[s+1]-along,tx=r.tx[s],tz=r.tz[s],yaw=Math.atan2(tx,tz);if(streetCross(r,x,z,4))continue;
-      for(const side of [-1,1]){const wx=x+tz*side*(r.hw+2),wz=z-tx*side*(r.hw+2);if(dhakaExitAt(wx,wz,L/2+2))continue;walks.push({x:wx,z:wz,w:4,d:L+.1,y:y+.13,yaw});
+      for(const side of [-1,1]){const wx=x+tz*side*(r.hw+2),wz=z-tx*side*(r.hw+2);if(dhakaExitAt(wx,wz,L/2+2))continue;walks.push({x:wx,z:wz,w:4,d:L+.1,y:y+.13,yaw,side});
         for(let k=0;k<L;k+=1.8){const px=r.xs[s]+tx*k+tz*side*(r.hw+.16),pz=r.zs[s]+tz*k-tx*side*(r.hw+.16);curbs.push({x:px,z:pz,y:y+.12,len:Math.min(1.8,L-k),yaw,yellow:Math.floor((along+k)/1.8)%2});}
       }
       if(r.axis==='avenue'&&r.index===0&&!dhakaExitAt(x,z,2)){hard.box(2.8,.16,L,x,y+.08,z,'#c8c6b5');for(const sd of [-1,1])(Math.floor(along/4)%2?yellow:dark).box(.18,.24,L,x+sd*1.4,y+.12,z,Math.floor(along/4)%2?'#ebc739':'#292d27');if(s%3===0&&!roadEntranceClearance(x,z,1))trees.ball(.48,x,y+.35,z,'#66834b',.65,1.3);}
@@ -110,6 +110,7 @@ vUv=(instanceMatrix*vec4(position,1.0)).xz/4.0;
   buildDhakaShops(shopData,group);buildDhakaMetro(hard,dark,metal,signs);buildDhakaStreetDetails(hard,metal,white,trees,signs);
   for(const g of [hard,dark,yellow,white,metal,trees]){const mesh=new THREE.Mesh(g.geometry(),new THREE.MeshLambertMaterial({vertexColors:true}));mesh.castShadow=mesh.receiveShadow=true;group.add(mesh);}
   for(const s of signs)dhakaSign(s.text,s.x,s.y,s.z,s.yaw,s.w,s.h,group);
+  buildFootpathMarkets(walks);
   const cv=document.getElementById('gl');cv.dataset.dhakaRoads=DHAKA.roads.length;cv.dataset.dhakaBuildings=DHAKA.buildings;cv.dataset.dhakaDistricts=DHAKA.rows.length*DHAKA.cols.length;cv.dataset.dhakaMetroPiers=DHAKA.metro;
 }
 function dhakaEntranceAt(x,z){return DHAKA.entrances.some(p=>Math.abs(p.x-x)<4&&Math.abs(p.z-z)<2.2);}

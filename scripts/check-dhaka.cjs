@@ -74,6 +74,7 @@ for(const g of DHAKA.gates){
     const site=findRoadsideSite(r,g.s,dir,kind);assert(site,'No safe roadside location found');
     assert(roadsideFootprintClear(site.x,site.z,site.hx,site.hz,site.yaw),'Fixture overlaps highway flare');
     reserveRoadsideSite(site);
+    assert(roadsideReservedAt(site.x,site.z),'Roadside reservation was not spatially indexed');
   }
 }
 const avenue=DHAKA.roads.find(r=>r.axis==='avenue'&&r.index===0),crossing=180-7*52+465;
@@ -81,6 +82,42 @@ const shelter=findRoadsideSite(avenue,crossing,1,'stop');assert(shelter,'Interse
 assert(Math.abs(shelter.s-crossing)>7,'Shelter stayed in intersecting traffic lanes');
 assert(roadsideFootprintClear(shelter.x,shelter.z,shelter.hx,shelter.hz,shelter.yaw));
 console.log('Roadside checks passed: both traffic directions, widened exits, full shelter footprints and crossing-road clearance.');
+`,context);
+
+context.document={getElementById:()=>({dataset:{}})};
+vm.runInContext(fs.readFileSync('src/markets.js','utf8'),context);
+vm.runInContext(`
+function addStaticBox(x,z,hx,hz,yaw){STATICS.push({x,z,hx,hz,c:Math.cos(yaw),s:Math.sin(yaw),box:true});}
+const marketWalks=[];
+for(const r of DHAKA.roads.filter(r=>r.axis==='avenue'||r.axis==='street'))for(let i=1;i<r.N;i+=2)for(const side of [-1,1]){
+  const x=(r.xs[i-1]+r.xs[i])/2+r.tz[i]*side*(r.hw+2),z=(r.zs[i-1]+r.zs[i])/2-r.tx[i]*side*(r.hw+2);
+  marketWalks.push({x,z,y:0,w:4,d:r.cum[i]-r.cum[i-1],yaw:Math.atan2(r.tx[i],r.tz[i]),side});
+}
+registerMarketWalks(marketWalks);
+assert(FOOTPATH_MARKET.sites.length>30,'Footpaths were not populated');
+assert.equal(new Set(FOOTPATH_MARKET.sites.map(p=>p.kind)).size,3,'Missing a seller category');
+assert(marketReservedAt(FOOTPATH_MARKET.sites[0].cx,FOOTPATH_MARKET.sites[0].cz),'Market reservation was not spatially indexed');
+for(const p of FOOTPATH_MARKET.sites)assert(roadsideFootprintClear(p.cx,p.cz,p.hx,p.hz,p.yaw,.55),'Market site enters a traffic lane');
+for(const side of [-1,1])for(const yaw of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+  const walk={x:0,z:0,y:0,w:4,d:12,yaw,side},site=marketFootprint(walk);
+  for(let role=0;role<3;role++)for(let time=0;time<=20;time+=.1){
+    const pose=marketShopperPose(time,0,role),x=site.x+Math.cos(site.yaw)*pose.lx+Math.sin(site.yaw)*pose.lz,z=site.z-Math.sin(site.yaw)*pose.lx+Math.cos(site.yaw)*pose.lz;
+    const u=x*Math.cos(yaw)-z*Math.sin(yaw),v=x*Math.sin(yaw)+z*Math.cos(yaw);
+    assert(Math.abs(u)+.4<walk.w/2,'Shopper walks off the footpath');assert(Math.abs(v)+.4<walk.d/2,'Shopper leaves the reserved sidewalk section');
+  }
+}
+assert(marketShopperPose(7,0,1).bag,'Buyer does not carry a purchase after shopping');
+assert.notEqual(marketShopperPose(0,0,1).lz,marketShopperPose(10,0,1).lz,'Buyer animation is stationary');
+const wallX=100000,wallZ=100000;
+STATICS.push({x:wallX,z:wallZ,hx:1,hz:8,c:1,s:0,box:true});
+assert(roadsideStaticFootprintClear(wallX-2.65,wallZ,1.4,2.6,0),'Valid narrow sidewalk site rejected');
+assert(!roadsideStaticFootprintClear(wallX-2.35,wallZ,1.4,2.6,0),'Van overlaps a shop wall');
+STATICS.push({x:wallX+100,z:wallZ,hx:1,hz:8,c:0,s:1,box:true});
+assert(roadsideStaticFootprintClear(wallX+100,wallZ+2.65,1.4,2.6,Math.PI/2),'Rotated sidewalk footprint rejected');
+const outsideRoad=RD.findIndex(r=>r.id==='N3'),bazaar={ri:outsideRoad,s0:1900,s1:1990,built:{}},beforeBazaar=FOOTPATH_MARKET.sites.length;
+registerBazaarMarkets(bazaar);assert(FOOTPATH_MARKET.sites.length>beforeBazaar,'Bazaars outside Dhaka have no van stalls');
+const once=FOOTPATH_MARKET.sites.length;registerBazaarMarkets(bazaar);assert.equal(FOOTPATH_MARKET.sites.length,once,'Bazaar rebuild duplicated stalls');
+console.log('Market checks passed: all three seller types, traffic clearance and shoppers staying on both sides of rotated footpaths.');
 `,context);
 
 const html = fs.readFileSync('dist/index.html', 'utf8');
