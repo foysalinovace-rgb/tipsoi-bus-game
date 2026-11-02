@@ -45,7 +45,7 @@ function buildTipsoiBoards(){
     g.fillStyle='#fff';g.font='700 88px sans-serif';g.fillText(name,100,425);g.fillStyle='#bcb9d8';g.font='500 36px sans-serif';g.fillText(subtitles[i],105,510);
     g.fillStyle='#b5a0ff';g.fillRect(105,580,80,5);g.fillStyle='#ebe7ff';g.font='40px sans-serif';g.fillText('Smart attendance. Every day.',105,680);g.font='700 48px sans-serif';g.fillText('tipsoi.pro',105,900);
     if(TIPSOI_ASSETS[i]){g.fillStyle='#fff';g.fillRect(1240,76,730,872);g.drawImage(TIPSOI_ASSETS[i],1240,120,730,730);}
-    const texture=new THREE.CanvasTexture(c);texture.anisotropy=Math.min(16,renderer.capabilities.getMaxAnisotropy());return new THREE.MeshBasicMaterial({map:texture});
+    const texture=new THREE.CanvasTexture(c);texture.anisotropy=Math.min(16,renderer.capabilities.getMaxAnisotropy());return new THREE.MeshBasicMaterial({map:texture,fog:false});
   });
   for(const [ri,r] of RD.entries()){
     if(r.narrow)continue;let j=1,slot=0;
@@ -53,17 +53,18 @@ function buildTipsoiBoards(){
       while(j<r.N-1&&r.cum[j]<d)j++;
       const t=(d-r.cum[j-1])/Math.max(.001,r.cum[j]-r.cum[j-1]);
       const x=r.xs[j-1]+(r.xs[j]-r.xs[j-1])*t,z=r.zs[j-1]+(r.zs[j]-r.zs[j-1])*t;
-      const side=slot%2?1:-1,bx=x+r.tz[j]*side*(r.hw+12),bz=z-r.tx[j]*side*(r.hw+12);
-      if(!isWater(bx,bz))TIPSOI_BOARDS.locations.push({x:bx,z:bz,y:heightAt(bx,bz),yaw:Math.atan2(r.tx[j],r.tz[j])+.14*side,ad:(ri+slot)%3});slot++;
+      const side=slot%2?1:-1,bx=x+r.tz[j]*side*(r.hw+10),bz=z-r.tx[j]*side*(r.hw+10);
+      if(!isWater(bx,bz))TIPSOI_BOARDS.locations.push({x:bx,z:bz,y:heightAt(bx,bz),tx:r.tx[j],tz:r.tz[j],yaw:Math.atan2(r.tx[j],r.tz[j])+.14*side,ad:(ri+slot)%3});slot++;
     }
   }
+  TIPSOI_BOARDS.grid=new Map();for(const p of TIPSOI_BOARDS.locations){const key=Math.floor(p.x/64)+','+Math.floor(p.z/64);if(!TIPSOI_BOARDS.grid.has(key))TIPSOI_BOARDS.grid.set(key,[]);TIPSOI_BOARDS.grid.get(key).push(p);}
   const steel=new THREE.MeshLambertMaterial({color:'#4c5260'}),back=new THREE.MeshLambertMaterial({color:'#202332'});
-  const panelG=new THREE.PlaneGeometry(15,7.5),frameG=new THREE.BoxGeometry(15.4,7.9,.35),poleG=new THREE.CylinderGeometry(.17,.24,8,8);
+  const panelG=new THREE.PlaneGeometry(17,8.5),frameG=new THREE.BoxGeometry(17.4,8.9,.35),poleG=new THREE.CylinderGeometry(.17,.24,12,8);
   for(let k=0;k<28;k++){
-    const group=new THREE.Group(),frame=new THREE.Mesh(frameG,back);frame.position.y=10;frame.castShadow=true;group.add(frame);
-    const faceA=new THREE.Mesh(panelG,mats[0]);faceA.position.set(0,10,.19);group.add(faceA);
-    const faceB=new THREE.Mesh(panelG,mats[0]);faceB.position.set(0,10,-.19);faceB.rotation.y=Math.PI;group.add(faceB);
-    for(const x of [-5.4,5.4]){const pole=new THREE.Mesh(poleG,steel);pole.position.set(x,4,0);pole.castShadow=true;group.add(pole)}
+    const group=new THREE.Group(),frame=new THREE.Mesh(frameG,back);frame.position.y=14;frame.castShadow=true;group.add(frame);
+    const faceA=new THREE.Mesh(panelG,mats[0]);faceA.position.set(0,14,.19);faceA.frustumCulled=false;group.add(faceA);
+    const faceB=new THREE.Mesh(panelG,mats[0]);faceB.position.set(0,14,-.19);faceB.rotation.y=Math.PI;faceB.frustumCulled=false;group.add(faceB);
+    for(const x of [-6.4,6.4]){const pole=new THREE.Mesh(poleG,steel);pole.position.set(x,6,0);pole.castShadow=true;group.add(pole)}
     group.visible=false;scene.add(group);TIPSOI_BOARDS.pool.push({group,faceA,faceB});
   }
   TIPSOI_BOARDS.mats=mats;document.getElementById('gl').dataset.billboardLocations=TIPSOI_BOARDS.locations.length;

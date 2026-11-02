@@ -26,6 +26,8 @@ Choose **Traffic** in that menu: **High** keeps the previous traffic density, **
 
 **Low** is the default traffic preset. Existing browser settings migrate to Low once; subsequent manual preset changes remain saved. **Restart**, beside the top-right menu, returns the current vehicle to the N3 starting point and stops it, retaining the selected vehicle, camera, settings and driving records.
 
+Scenery uses procedurally generated window/glass/concrete textures with world-sized floors, nearby roof parapets, water tanks, AC units and floor ledges. Trees use branched bark-textured trunks, cutout leaf clusters and curved palm fronds. Details remain instanced and are streamed around the player. Product billboards are taller, larger, double-faced and unaffected by fog or night lighting; clear approach corridors prevent generated trees and buildings from covering their faces. Distant signs still follow normal camera visibility and the existing streaming range.
+
 High graphics is now the default: antialiasing, pixel ratio up to 2, 4096px desktop terrain (2048px touch devices), soft 2048px shadows, and high-resolution advertising textures. The garage dropdown and HUD graphics button switch between High and Balanced; the choice persists in this browser. Mirrors remain optional.
 
 The open-road design uses a lavender garage selector and a rearranged HUD. Facebook, Privacy and update navigation have been removed. Billboard placements repeat every 240 in-game metres along non-narrow road splines, alternating sides and avoiding water. There are 593 valid positions in this world. A pool of 28 double-faced billboards follows the player within 1900 metres, sharing three product textures to keep rendering bounded.
