@@ -5,7 +5,8 @@
   "description": "Tipsoi-branded Bangladesh driving browser game",
   "scripts": {
     "start": "node serve.cjs",
-    "build": "node scripts/build.cjs"
+    "build": "node scripts/build.cjs",
+    "check:dhaka": "node scripts/check-dhaka.cjs"
   },
   "engines": {
     "node": ">=18"

@@ -42,7 +42,8 @@ html = html.replace(/<nav id="signBar"[\s\S]*?<\/nav>/, '<nav id="signBar" aria-
 const brandingJS = fs.readFileSync('src/branding.js', 'utf8');
 const sceneryJS = fs.readFileSync('src/scenery.js', 'utf8');
 const ruralJS = fs.readFileSync('src/rural.js', 'utf8');
-html = html.replace('const BD_RINGS =', brandingJS + '\n' + sceneryJS + '\n' + ruralJS + '\nconst BD_RINGS =');
+const dhakaJS = fs.readFileSync('src/dhaka.js', 'utf8').replace('__DHAKA_LAYOUT__', fs.readFileSync('src/dhaka-layout.json','utf8').trim());
+html = html.replace('const BD_RINGS =', brandingJS + '\n' + sceneryJS + '\n' + ruralJS + '\n' + dhakaJS + '\nconst BD_RINGS =');
 html = html.replace('buildScene(tex); applyTipsoiQuality();', 'buildScene(tex); upgradeTipsoiScenery(); applyTipsoiQuality();');
 html = html.replace('const trunkG = new THREE.CylinderGeometry(.16, .26, 1, 6); trunkG.translate(0, .5, 0);', 'const trunkG = tipsoiTrunkGeometry();');
 html = html.replace("trunkG, new THREE.MeshLambertMaterial({ color: '#ffffff' })", 'trunkG, tipsoiBarkMaterial()');
@@ -70,6 +71,28 @@ html = html.replace('const onRoad = nr.d < nr.hw + 1.5 || !!ra0;', 'const access
 html = html.replace('const mud = !ra0 && onRoad && RD[nr.ri].narrow;', 'const mud = !access && !ra0 && onRoad && nr.ri >= 0 && RD[nr.ri].narrow;');
 html = html.replace('st.road = onRoad && nr.d < nr.hw + 1.5 ? RD[nr.ri] : null;', 'st.road = onRoad && nr.d < nr.hw + 1.5 ? RD[nr.ri] : access ? access.road : null;');
 html = html.replace('updateLamps(); updateTipsoiBoards(dt);', 'updateLamps(); updateTipsoiBoards(dt); updateTipsoiFarming(!paused || attract ? dt : 0);');
+// Confine the reference city layout and its scenery to Dhaka. National routes
+// and the existing vehicle roster stay in place; new city roads add no actors.
+function dhakaPatch(from,to){if(!html.includes(from))throw new Error('Missing Dhaka build hook: '+from.slice(0,85));html=html.replace(from,to);}
+dhakaPatch('// ---------- grids built at load ----------','installDhakaRoads();\n\n// ---------- grids built at load ----------');
+dhakaPatch('  findDeadEnds(); planSites();','  findDeadEnds(); DHAKA.planningSites=true; planSites(); DHAKA.planningSites=false; pruneDhakaSites();');
+dhakaPatch('  planRoundabouts(); flattenRoundabouts(); planEnds();','  planRoundabouts(); pruneDhakaRoundabouts(); flattenRoundabouts(); planEnds();');
+dhakaPatch("kind = 'wall') { const o =", "kind = 'wall') { if(DHAKA.planningSites && dhakaContains(x,z,25))return; const o =");
+dhakaPatch('  mergeRoadHeights();','  prepareDhakaHeights();\n  mergeRoadHeights();');
+dhakaPatch('function siteClear(r, a, b, maxCity, sides, lateral) {','function siteClear(r, a, b, maxCity, sides, lateral) { if (r.dhaka) return false;');
+dhakaPatch('    const [x, z] = endPt(r, e);','    const [x, z] = endPt(r, e); if (r.dhaka) return;');
+dhakaPatch('if (r.narrow) return; const [a, b] = roadTrim(ri)', 'if (r.narrow || r.dhaka) return; const [a, b] = roadTrim(ri)');
+dhakaPatch('upgradeTipsoiRural(); applyTipsoiQuality();','upgradeTipsoiRural(); buildDhakaCity(); applyTipsoiQuality();');
+dhakaPatch('function roadAllowed(T, r) {','function roadAllowed(T, r) { if (r.dhaka) return false;');
+dhakaPatch('function ruralVegetationBlocked(x,z,padding=8){return ', 'function ruralVegetationBlocked(x,z,padding=8){return dhakaContains(x,z,8)||');
+dhakaPatch('function reserveBuildingAccess(x,z,w,d,n){','function reserveBuildingAccess(x,z,w,d,n){ if(dhakaContains(x,z,20))return null;');
+dhakaPatch('for(const p of candidates){if(TIPSOI_FARMS.plots.length>=24)', 'for(const p of candidates){if(dhakaContains(p.x,p.z,30))continue;if(TIPSOI_FARMS.plots.length>=24)');
+dhakaPatch('if (accessRoadAt(bx, bz, 1)) continue;', 'if (dhakaContains(bx,bz,8) || accessRoadAt(bx, bz, 1)) continue;');
+dhakaPatch('if (accessRoadAt(ax, az, 1) || accessRoadAt(bx_, bz_, 1)) continue;', 'if (dhakaContains(ax,az,8) || accessRoadAt(ax, az, 1) || accessRoadAt(bx_, bz_, 1)) continue;');
+dhakaPatch('if(!isWater(bx,bz))TIPSOI_BOARDS.locations.push', 'if(!dhakaContains(bx,bz,10)&&!isWater(bx,bz))TIPSOI_BOARDS.locations.push');
+dhakaPatch('  buildJump(); bindBigMap();','  buildJump(); addDhakaJumpButtons(); bindBigMap();');
+dhakaPatch('  if (opts.labels) {','  dhakaMap(ctx,k);\n  if (opts.labels) {');
+dhakaPatch("  const rd = $('road');", "  if(dhakaContains(st.x,st.z)){ $('placeBn').textContent=dhakaNameAt(st.x,st.z); $('placeEn').textContent='Dhaka City · ঢাকা নগর'; }\n  const rd = $('road');");
 html = html.replace('</style>', fs.readFileSync('src/branding.css','utf8')+'\n</style>');
 html += fs.readFileSync('src/products.html','utf8');
 fs.writeFileSync('dist/index.html', html);

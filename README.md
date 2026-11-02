@@ -2,6 +2,10 @@
 
 A Tipsoi-branded adaptation of the Ostad Driver browser game requested by the user. Original game and procedural world source: https://ostaddriver.com/ (retrieved 2026-11-01). Original authors retain their rights; no open-source license for the game was supplied with the page. Three.js retains its bundled MIT notice; fonts are SIL OFL.
 
+The Dhaka-only city layout adapts the avenue/street grid and neighborhood ordering of https://baperrasta.com/ (inspected 2026-11-02), by Omar Faruqe Riyad. `src/dhaka-layout.json` records those place names and their grid ordering. `src/dhaka.js` rebuilds the streets and scenery for this game's engine: smaller blocks fit the existing 1:20 Bangladesh map, while road widths remain driveable. This is a bounded adaptation rather than a full-size or geographically exact reproduction. No Baper Rasta vehicle models, gameplay systems or executable bundle are included.
+
+Only the Dhaka city rectangle gains the local street grid, metro viaduct/stations, brick sidewalks, yellow/black curbs, ground-floor shops, utility wires, parks and selected landmarks. National route coordinates and the existing vehicle roster remain intact. New city roads are excluded from NPC vehicle spawning; existing traffic continues on its retained routes. Open **Menu → Map → DHAKA CITY** to visit Shahbag, Gulistan, Mirpur 10, Uttara or Jatrabari. The other cities and rural farming scenery retain their existing implementation.
+
 Tipsoi logo and FastFace 8, FastFace 5 Pro FP and FastFace Go Lite product images are from https://tipsoi.pro/. Branding is incorporated into the vehicle livery, bazaar signs, roadside displays, loading screen and product catalogue. This project is an adaptation, not an original implementation of the reference game.
 
 Play online: https://tipsoi-driver-bd.technologia-0924.chatgpt.site/
