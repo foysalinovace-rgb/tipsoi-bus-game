@@ -18,6 +18,16 @@ vm.runInContext(`
 installDhakaRoads();
 assert.equal(DHAKA.originalRoads, original.length);
 assert.equal(DHAKA.roads.length, 32);
+assert.equal(DHAKA.roads.find(r=>r.axis==='ring').w,24);
+assert(DHAKA.roads.filter(r=>r.axis==='link').every(r=>r.w===28),'City highway links must be 28 metres wide');
+assert(DHAKA.gates.length>0,'Highway exit crossings missing');
+for(const g of DHAKA.gates){const r=RD[g.ri];let i=0;for(let j=1;j<r.N;j++)if(Math.abs(r.cum[j]-g.s)<Math.abs(r.cum[i]-g.s))i=j;assert.equal(dhakaExitWidth(r,i),28,'Gateway flare not widened');assert(roadEntranceClearance(g.x,g.z,2),'Exit mouth permits trees');}
+for(const r of RD)for(const i of [0,r.N-1])assert(roadEntranceClearance(r.xs[i],r.zs[i],3),'Road endpoint permits trees');
+const fixture={a:{x:100000,z:100000,y:3},b:{x:100080,z:100000,y:5},hw:14,aw:14,bw:7,road:RD[0]};
+roadClearanceIndex(DHAKA.exitGrid,fixture);
+assert.equal(dhakaExitAt(100040,100010).y,4,'Widened lane height interpolation failed');
+assert.equal(dhakaExitAt(100040,100011),null,'Widened lane collision spills past its taper');
+DHAKA.exitGrid.clear();
 for (let i = 0; i < original.length; i++) {
   assert.deepEqual(Array.from(RD[i].xs), original[i].xs, 'Existing road X changed');
   assert.deepEqual(Array.from(RD[i].zs), original[i].zs, 'Existing road Z changed');

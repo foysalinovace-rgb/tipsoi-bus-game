@@ -48,7 +48,7 @@ function buildTipsoiBoards(){
     const texture=new THREE.CanvasTexture(c);texture.anisotropy=Math.min(16,renderer.capabilities.getMaxAnisotropy());return new THREE.MeshBasicMaterial({map:texture,fog:false});
   });
   for(const [ri,r] of RD.entries()){
-    if(r.narrow)continue;let j=1,slot=0;
+    if(r.narrow||r.dhaka)continue;let j=1,slot=0;
     for(let d=90;d<r.len-50;d+=240){
       while(j<r.N-1&&r.cum[j]<d)j++;
       const t=(d-r.cum[j-1])/Math.max(.001,r.cum[j]-r.cum[j-1]);
@@ -67,7 +67,7 @@ function buildTipsoiBoards(){
     for(const x of [-6.4,6.4]){const pole=new THREE.Mesh(poleG,steel);pole.position.set(x,6,0);pole.castShadow=true;group.add(pole)}
     group.visible=false;scene.add(group);TIPSOI_BOARDS.pool.push({group,faceA,faceB});
   }
-  TIPSOI_BOARDS.mats=mats;document.getElementById('gl').dataset.billboardLocations=TIPSOI_BOARDS.locations.length;
+  TIPSOI_BOARDS.mats=mats;buildDhakaBillboards(mats);document.getElementById('gl').dataset.billboardLocations=TIPSOI_BOARDS.locations.length;
 }
 function updateTipsoiBoards(dt){
   TIPSOI_BOARDS.timer-=dt;if(TIPSOI_BOARDS.timer>0||!TIPSOI_BOARDS.pool.length)return;TIPSOI_BOARDS.timer=.65;

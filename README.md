@@ -6,6 +6,8 @@ The Dhaka-only city layout adapts the avenue/street grid and neighborhood orderi
 
 Only the Dhaka city rectangle gains the local street grid, metro viaduct/stations, brick sidewalks, yellow/black curbs, ground-floor shops, utility wires, parks and selected landmarks. National route coordinates and the existing vehicle roster remain intact. New city roads are excluded from NPC vehicle spawning; existing traffic continues on its retained routes. Open **Menu → Map → DHAKA CITY** to visit Shahbag, Gulistan, Mirpur 10, Uttara or Jatrabari. The other cities and rural farming scenery retain their existing implementation.
 
+Dhaka has dedicated building-mounted Tipsoi product billboards sharing the existing three advertising textures. The city ring is 24 metres wide and the four highway links are 28 metres wide. The four national-road crossings at the city boundary widen to 28 metres on dry sections and taper back to their existing width within 160 metres; bridge widths remain unchanged. The wider surface also participates in driving traction and ground height. Building placement, sidewalks, curbs, metro piers and farming plots leave these approaches clear. Trees and their crowns are excluded from road ends, junction mouths and highway exits; city park and street trees use the same entrance checks.
+
 Tipsoi logo and FastFace 8, FastFace 5 Pro FP and FastFace Go Lite product images are from https://tipsoi.pro/. Branding is incorporated into the vehicle livery, bazaar signs, roadside displays, loading screen and product catalogue. This project is an adaptation, not an original implementation of the reference game.
 
 Play online: https://tipsoi-driver-bd.technologia-0924.chatgpt.site/

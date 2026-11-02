@@ -84,7 +84,10 @@ dhakaPatch('    const [x, z] = endPt(r, e);','    const [x, z] = endPt(r, e); if
 dhakaPatch('if (r.narrow) return; const [a, b] = roadTrim(ri)', 'if (r.narrow || r.dhaka) return; const [a, b] = roadTrim(ri)');
 dhakaPatch('upgradeTipsoiRural(); applyTipsoiQuality();','upgradeTipsoiRural(); buildDhakaCity(); applyTipsoiQuality();');
 dhakaPatch('function roadAllowed(T, r) {','function roadAllowed(T, r) { if (r.dhaka) return false;');
-dhakaPatch('function ruralVegetationBlocked(x,z,padding=8){return ', 'function ruralVegetationBlocked(x,z,padding=8){return dhakaContains(x,z,8)||');
+dhakaPatch('function ruralVegetationBlocked(x,z,padding=8){return ', 'function ruralVegetationBlocked(x,z,padding=8){return roadEntranceClearance(x,z,padding)||!!dhakaExitAt(x,z,padding)||dhakaContains(x,z,8)||');
+html = html.replaceAll('const access = accessRoadAt(x, z);', 'const access = accessRoadAt(x, z) || dhakaExitAt(x, z);');
+html = html.replaceAll('const access = accessRoadAt(st.x, st.z);', 'const access = accessRoadAt(st.x, st.z) || dhakaExitAt(st.x, st.z);');
+dhakaPatch('accessRoadAt(x,z,5)||ruralBuildingAt', 'accessRoadAt(x,z,5)||dhakaExitAt(x,z,6)||ruralBuildingAt');
 dhakaPatch('function reserveBuildingAccess(x,z,w,d,n){','function reserveBuildingAccess(x,z,w,d,n){ if(dhakaContains(x,z,20))return null;');
 dhakaPatch('for(const p of candidates){if(TIPSOI_FARMS.plots.length>=24)', 'for(const p of candidates){if(dhakaContains(p.x,p.z,30))continue;if(TIPSOI_FARMS.plots.length>=24)');
 dhakaPatch('if (accessRoadAt(bx, bz, 1)) continue;', 'if (dhakaContains(bx,bz,8) || accessRoadAt(bx, bz, 1)) continue;');
