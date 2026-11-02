@@ -1,0 +1,26 @@
+// Frame budgeting preserves the scene while avoiding redundant GPU/DOM work.
+const GAME_PERF={scale:1,lastRaf:0,begin:0,intervals:[],cpu:[],samples:0,jank:0,lastReport:0,lastShadow:-Infinity,warmUntil:0,slow:0,fast:0,contextLosses:0,recovered:false,wasPaused:true,timingHold:0,backgroundGaps:0,worstCpu:0};
+function runtimeScaleFor(scale,fps,base){const floor=base>1?1/base:.85;if(fps<42)return Math.max(floor,scale-.1);if(fps>57)return Math.min(1,scale+.05);return scale;}
+function runtimePixelRatio(high){return Math.min(window.devicePixelRatio,high?2:1.25)*GAME_PERF.scale;}
+function runtimeApplyResolution(){if(!renderer)return;renderer.setPixelRatio(runtimePixelRatio(TIPSOI_QUALITY==='high'));renderer.setSize(innerWidth,innerHeight,false);GAME_PERF.lastShadow=-Infinity;}
+function runtimeSceneChanged(){const P=GAME_PERF;P.lastShadow=-Infinity;P.warmUntil=performance.now()+1500;if(typeof FOOTPATH_MARKET!=='undefined')FOOTPATH_MARKET.timer=0;if(typeof TIPSOI_BOARDS!=='undefined')TIPSOI_BOARDS.timer=0;}
+function populate(cx,cz,force){if(!force&&cx+','+cz===lastCell)return;const begin=performance.now();try{return populateWorld(cx,cz,force);}finally{GAME_PERF.populateLast=performance.now()-begin;GAME_PERF.populateMax=Math.max(GAME_PERF.populateMax||0,GAME_PERF.populateLast);}}
+function runtimeFrameStart(now){const P=GAME_PERF;P.begin=performance.now();const elapsed=now-P.lastRaf;P.lastRaf=now;if(!paused&&!document.hidden&&document.hasFocus()&&elapsed>0){if(elapsed>=250){P.timingHold=now+1500;P.backgroundGaps++;P.intervals=[];}else{P.intervals.push(elapsed);if(P.intervals.length>180)P.intervals.shift();P.samples++;if(elapsed>50)P.jank++;}}}
+function runtimeShadowDue(now){if(!renderer.shadowMap.enabled)return false;if(now-GAME_PERF.lastShadow<50)return false;GAME_PERF.lastShadow=now;return true;}
+function runtimeFrameEnd(now){
+  const P=GAME_PERF,foreground=!document.hidden&&document.hasFocus();if(!paused&&foreground){const elapsed=performance.now()-P.begin;P.worstCpu=Math.max(P.worstCpu,elapsed);P.cpu.push(elapsed);if(P.cpu.length>180)P.cpu.shift();}if(now-P.lastReport<1000)return;P.lastReport=now;
+  const sorted=P.intervals.slice().sort((a,b)=>a-b),cpu=P.cpu.slice().sort((a,b)=>a-b),at=(a,q)=>a.length?a[Math.min(a.length-1,Math.floor(a.length*q))]:0,mean=P.intervals.reduce((s,n)=>s+n,0)/Math.max(1,P.intervals.length),fps=mean?1000/mean:0;
+  const timingValid=foreground&&P.intervals.length>=60&&now>P.timingHold,info=renderer.info.render,cv=document.getElementById('gl');cv.dataset.render=JSON.stringify({triangles:info.triangles,contextLost:renderer.getContext().isContextLost(),frame:info.frame});cv.dataset.performance=JSON.stringify({foreground,timingValid,fps:timingValid?+fps.toFixed(1):null,frameP50:+at(sorted,.5).toFixed(1),frameP95:+at(sorted,.95).toFixed(1),cpuP50:+at(cpu,.5).toFixed(1),cpuP95:+at(cpu,.95).toFixed(1),worstCpu:+P.worstCpu.toFixed(1),populateLast:+(P.populateLast||0).toFixed(1),populateMax:+(P.populateMax||0).toFixed(1),draws:info.calls,triangles:info.triangles,pixelRatio:+renderer.getPixelRatio().toFixed(2),samples:P.samples,longFrames:P.jank,backgroundGaps:P.backgroundGaps,contextLosses:P.contextLosses,quality:TIPSOI_QUALITY});
+  if(paused||!timingValid||now<P.warmUntil)return;
+  P.slow=fps<42?P.slow+1:0;P.fast=fps>57?P.fast+1:0;
+  if(P.slow>=3||P.fast>=8){const next=runtimeScaleFor(P.scale,fps,Math.min(window.devicePixelRatio,TIPSOI_QUALITY==='high'?2:1.25));P.slow=P.fast=0;if(Math.abs(next-P.scale)>.001){P.scale=next;runtimeApplyResolution();P.warmUntil=now+2000;P.intervals=[];P.cpu=[];}}
+}
+function installRuntimeGuards(){
+  const canvas=document.getElementById('gl');if(canvas.dataset.runtimeGuards)return;canvas.dataset.runtimeGuards='1';GAME_PERF.warmUntil=performance.now()+5000;
+  const overlay=document.createElement('div');overlay.id='graphicsRecovery';overlay.hidden=true;overlay.setAttribute('role','alert');overlay.innerHTML='<div><b>গ্রাফিক্স আবার চালু হচ্ছে…</b><p>ছবি ফিরে না এলে গেমটি আবার লোড করুন।</p><button type="button">গেম আবার লোড করুন</button></div>';document.body.append(overlay);overlay.querySelector('button').onclick=()=>location.reload();
+  canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();GAME_PERF.contextLosses++;GAME_PERF.wasPaused=paused;paused=true;for(const k of Object.keys(input))input[k]=0;overlay.hidden=false;});
+  canvas.addEventListener('webglcontextrestored',()=>{GAME_PERF.recovered=true;GAME_PERF.scale=Math.max(Math.min(1,1/Math.min(window.devicePixelRatio,2)),Math.min(GAME_PERF.scale,.85));if(sun){sun.shadow.mapSize.set(1024,1024);if(sun.shadow.map){sun.shadow.map.dispose();sun.shadow.map=null;}}runtimeApplyResolution();overlay.hidden=true;paused=GAME_PERF.wasPaused;last=performance.now();runtimeSceneChanged();});
+  document.addEventListener('visibilitychange',()=>{GAME_PERF.lastRaf=0;GAME_PERF.intervals=[];GAME_PERF.cpu=[];if(document.hidden){for(const k of Object.keys(input))input[k]=0;for(const k of Object.keys(FC.keys))FC.keys[k]=false;horn(false);}});
+  window.addEventListener('resize',runtimeSceneChanged);
+  window.addEventListener('focus',()=>{GAME_PERF.lastRaf=0;GAME_PERF.intervals=[];GAME_PERF.cpu=[];GAME_PERF.warmUntil=performance.now()+1500;});
+}

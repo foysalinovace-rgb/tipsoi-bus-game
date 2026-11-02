@@ -29,8 +29,8 @@ try{TIPSOI_QUALITY=localStorage.getItem('tipsoi.graphics')||'high'}catch(_){}
 if(!['high','balanced'].includes(TIPSOI_QUALITY))TIPSOI_QUALITY='high';
 async function loadTipsoiAssets(){await Promise.all(['fastface-8.png','fastface-5-pro.png','fastface-go.png'].map((f,i)=>new Promise(resolve=>{const im=new Image();im.onload=()=>{TIPSOI_ASSETS[i]=im;resolve()};im.onerror=resolve;im.src='assets/'+f;})));}
 function applyTipsoiQuality(value=TIPSOI_QUALITY){
-  TIPSOI_QUALITY=value;const high=value==='high';
-  if(renderer){renderer.setPixelRatio(Math.min(window.devicePixelRatio,high?2:1.25));renderer.setSize(innerWidth,innerHeight,false);renderer.shadowMap.enabled=high;renderer.shadowMap.needsUpdate=true;}
+  TIPSOI_QUALITY=value;const high=value==='high';GAME_PERF.scale=1;GAME_PERF.slow=GAME_PERF.fast=0;
+  if(renderer){runtimeApplyResolution();renderer.shadowMap.enabled=high;renderer.shadowMap.needsUpdate=true;}
   const select=document.getElementById('graphicsQuality');if(select)select.value=value;
   const label=document.getElementById('qualityLbl');if(label)label.textContent=high?'Graphics · High':'Graphics · Balanced';
   document.documentElement.dataset.graphics=value;try{localStorage.setItem('tipsoi.graphics',value)}catch(_){}
@@ -47,16 +47,7 @@ function buildTipsoiBoards(){
     if(TIPSOI_ASSETS[i]){g.fillStyle='#fff';g.fillRect(1240,76,730,872);g.drawImage(TIPSOI_ASSETS[i],1240,120,730,730);}
     const texture=new THREE.CanvasTexture(c);texture.anisotropy=Math.min(16,renderer.capabilities.getMaxAnisotropy());return new THREE.MeshBasicMaterial({map:texture,fog:false});
   });
-  for(const [ri,r] of RD.entries()){
-    if(r.narrow||r.dhaka)continue;let j=1,slot=0;
-    for(let d=90;d<r.len-50;d+=240){
-      while(j<r.N-1&&r.cum[j]<d)j++;
-      const t=(d-r.cum[j-1])/Math.max(.001,r.cum[j]-r.cum[j-1]);
-      const x=r.xs[j-1]+(r.xs[j]-r.xs[j-1])*t,z=r.zs[j-1]+(r.zs[j]-r.zs[j-1])*t;
-      const side=slot%2?1:-1,bx=x+r.tz[j]*side*(r.hw+10),bz=z-r.tx[j]*side*(r.hw+10);
-      if(!isWater(bx,bz))TIPSOI_BOARDS.locations.push({x:bx,z:bz,y:heightAt(bx,bz),tx:r.tx[j],tz:r.tz[j],yaw:Math.atan2(r.tx[j],r.tz[j])+.14*side,ad:(ri+slot)%3});slot++;
-    }
-  }
+  TIPSOI_BOARDS.locations=planSafeBillboards();
   TIPSOI_BOARDS.grid=new Map();for(const p of TIPSOI_BOARDS.locations){const key=Math.floor(p.x/64)+','+Math.floor(p.z/64);if(!TIPSOI_BOARDS.grid.has(key))TIPSOI_BOARDS.grid.set(key,[]);TIPSOI_BOARDS.grid.get(key).push(p);}
   const steel=new THREE.MeshLambertMaterial({color:'#4c5260'}),back=new THREE.MeshLambertMaterial({color:'#202332'});
   const panelG=new THREE.PlaneGeometry(17,8.5),frameG=new THREE.BoxGeometry(17.4,8.9,.35),poleG=new THREE.CylinderGeometry(.17,.24,12,8);
@@ -67,7 +58,7 @@ function buildTipsoiBoards(){
     for(const x of [-6.4,6.4]){const pole=new THREE.Mesh(poleG,steel);pole.position.set(x,6,0);pole.castShadow=true;group.add(pole)}
     group.visible=false;scene.add(group);TIPSOI_BOARDS.pool.push({group,faceA,faceB});
   }
-  TIPSOI_BOARDS.mats=mats;buildDhakaBillboards(mats);document.getElementById('gl').dataset.billboardLocations=TIPSOI_BOARDS.locations.length;
+  TIPSOI_BOARDS.mats=mats;buildDhakaBillboards(mats);document.getElementById('gl').dataset.billboardLocations=TIPSOI_BOARDS.locations.length; collectGameAudit();
 }
 function updateTipsoiBoards(dt){
   TIPSOI_BOARDS.timer-=dt;if(TIPSOI_BOARDS.timer>0||!TIPSOI_BOARDS.pool.length)return;TIPSOI_BOARDS.timer=.65;
@@ -97,6 +88,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   for(const id of ['menuTraffic','optTraffic'])document.getElementById(id).addEventListener('change',e=>setTrafficPreset(e.target.value));
   let wasPaused=true;
   function closeMenu(){if(!menu.open)return;menu.close();toggle.setAttribute('aria-expanded','false');paused=wasPaused;last=performance.now();toggle.focus();}
+  document.addEventListener('tipsoi-close-menu',closeMenu);
   toggle.addEventListener('click',()=>{wasPaused=paused;paused=true;Object.keys(input).forEach(k=>input[k]=0);menu.showModal();toggle.setAttribute('aria-expanded','true');});
   document.getElementById('gameMenuClose').addEventListener('click',closeMenu);
   menu.addEventListener('cancel',e=>{e.preventDefault();closeMenu()});

@@ -1,6 +1,8 @@
 // Streamed, driveable building approaches and working roadside farms.
 const TIPSOI_ACCESS={paths:[],segments:[],grid:new Map(),buildings:[],buildingGrid:new Map(),mesh:null,doors:null};
 const TIPSOI_FARMS={plots:[],time:0,cropTimer:0,soil:null,crops:null,upper:null,legs:null,arms:null,tools:null,workers:[]};
+const FARM_POSE={ready:false,budget:0};
+function farmWorkerY(worker,travel){const path=worker.heights,t=Math.max(0,Math.min(path.length-1,(travel/worker.plot.length/.68+.5)*(path.length-1))),i=Math.min(path.length-2,Math.floor(t));return path[i]+(path[i+1]-path[i])*(t-i);}
 const ruralKey=(x,z)=>Math.floor(x/32)+','+Math.floor(z/32);
 function ruralSegmentDistance(x,z,a,b){const dx=b.x-a.x,dz=b.z-a.z,t=Math.max(0,Math.min(1,((x-a.x)*dx+(z-a.z)*dz)/(dx*dx+dz*dz||1)));return {d:Math.hypot(x-a.x-dx*t,z-a.z-dz*t),t};}
 function ruralGround(x,z){const n=nearestRoad(x,z,2);return Math.max(surfaceY0(x,z,n),apronY(x,z));}
@@ -92,24 +94,26 @@ function rebuildTipsoiFarms(){
   for(const p of TIPSOI_FARMS.plots){const pos=(u,v)=>{const x=p.x+p.tx*u+p.tz*v,z=p.z+p.tz*u-p.tx*v;return [x,ruralGround(x,z)+.035,z];};
     for(let u=-p.length/2;u<p.length/2;u+=4)for(let v=-p.width/2;v<p.width/2;v+=4)ruralQuad(P,U,pos(u,v),pos(u,Math.min(v+4,p.width/2)),pos(Math.min(u+4,p.length/2),v),pos(Math.min(u+4,p.length/2),Math.min(v+4,p.width/2)),1);
     p.clumps=[];for(let row=0;row<p.rows;row++)for(let col=0;col<p.cols;col++){const u=(col+.5)/p.cols*p.length-p.length/2,w=(row+.5)/p.rows*p.width-p.width/2,x=p.x+p.tx*u+p.tz*w,z=p.z+p.tz*u-p.tx*w;p.clumps.push({x,z,y:ruralGround(x,z)+.05,yaw:hash2(col+row*31,p.seed)*Math.PI});}
-    for(let k=0;k<2;k++)TIPSOI_FARMS.workers.push({plot:p,phase:hash2(p.seed,k+3)*6.28,lane:(k?1:-1)*p.width*.23,seed:p.seed+k*19});
+    for(let k=0;k<2;k++){const worker={plot:p,phase:hash2(p.seed,k+3)*6.28,lane:(k?1:-1)*p.width*.23,seed:p.seed+k*19};worker.heights=Array.from({length:17},(_,i)=>{const u=(i/16-.5)*p.length*.68;return ruralGround(p.x+p.tx*u+p.tz*worker.lane,p.z+p.tz*u-p.tx*worker.lane);});TIPSOI_FARMS.workers.push(worker);}
   }
   TIPSOI_FARMS.soil.geometry.dispose();TIPSOI_FARMS.soil.geometry=ruralGeometry(P,U);TIPSOI_FARMS.cropTimer=0;updateTipsoiFarming(0);
   const cv=document.getElementById('gl');cv.dataset.farmPlots=TIPSOI_FARMS.plots.length;cv.dataset.farmers=TIPSOI_FARMS.workers.length;
 }
 function updateTipsoiFarming(dt){
   if(!TIPSOI_FARMS.crops)return;TIPSOI_FARMS.time+=dt;TIPSOI_FARMS.cropTimer-=dt;
-  const time=TIPSOI_FARMS.time,m=new THREE.Matrix4(),q=new THREE.Quaternion(),e=new THREE.Euler(),v=new THREE.Vector3(),s=new THREE.Vector3(),base=new THREE.Matrix4(),local=new THREE.Matrix4();
+  FARM_POSE.budget+=dt;if(FARM_POSE.budget<.05&&TIPSOI_FARMS.cropTimer>0)return;FARM_POSE.budget=0;
+  if(!FARM_POSE.ready){Object.assign(FARM_POSE,{ready:true,m:new THREE.Matrix4(),q:new THREE.Quaternion(),e:new THREE.Euler(),v:new THREE.Vector3(),s:new THREE.Vector3(),base:new THREE.Matrix4(),local:new THREE.Matrix4(),a:new THREE.Vector3(),b:new THREE.Vector3(),direction:new THREE.Vector3(),up:new THREE.Vector3(0,1,0),color:new THREE.Color()});}
+  const time=TIPSOI_FARMS.time,{m,q,e,v,s,base,local}=FARM_POSE;
   if(TIPSOI_FARMS.cropTimer<=0){TIPSOI_FARMS.cropTimer=2;let n=0;
-    for(const p of TIPSOI_FARMS.plots){const growth=(time/180+hash2(p.seed,92))%1,h=growth>.92?.12:.18+Math.min(1,growth/.8)*.9,color=new THREE.Color().setHSL(growth>.7?.135:.23,growth>.7?.47:.43,growth>.7?.44:.27);
-      for(const c of p.clumps){if(n>=6500)break;q.setFromAxisAngle(new THREE.Vector3(0,1,0),c.yaw);m.compose(v.set(c.x,c.y,c.z),q,s.set(.85,h,.85));TIPSOI_FARMS.crops.setMatrixAt(n,m);TIPSOI_FARMS.crops.setColorAt(n++,color);}}
+    for(const p of TIPSOI_FARMS.plots){const growth=(time/180+hash2(p.seed,92))%1,h=growth>.92?.12:.18+Math.min(1,growth/.8)*.9,color=FARM_POSE.color.setHSL(growth>.7?.135:.23,growth>.7?.47:.43,growth>.7?.44:.27);
+      for(const c of p.clumps){if(n>=6500)break;q.setFromAxisAngle(FARM_POSE.up,c.yaw);m.compose(v.set(c.x,c.y,c.z),q,s.set(.85,h,.85));TIPSOI_FARMS.crops.setMatrixAt(n,m);TIPSOI_FARMS.crops.setColorAt(n++,color);}}
     TIPSOI_FARMS.crops.count=n;TIPSOI_FARMS.crops.instanceMatrix.needsUpdate=true;if(TIPSOI_FARMS.crops.instanceColor)TIPSOI_FARMS.crops.instanceColor.needsUpdate=true;document.getElementById('gl').dataset.cropClumps=n;
   }
-  let i=0;for(const worker of TIPSOI_FARMS.workers){const p=worker.plot,t=time*.75+worker.phase,travel=Math.sin(time*.045+worker.phase)*p.length*.34,x=p.x+p.tx*travel+p.tz*worker.lane,z=p.z+p.tz*travel-p.tx*worker.lane,y=ruralGround(x,z),yaw=p.yaw+(Math.cos(time*.045+worker.phase)<0?Math.PI:0),bend=.3+.5*(.5+.5*Math.sin(t));
+  let i=0;for(const worker of TIPSOI_FARMS.workers){const p=worker.plot,t=time*.75+worker.phase,travel=Math.sin(time*.045+worker.phase)*p.length*.34,x=p.x+p.tx*travel+p.tz*worker.lane,z=p.z+p.tz*travel-p.tx*worker.lane,y=farmWorkerY(worker,travel),yaw=p.yaw+(Math.cos(time*.045+worker.phase)<0?Math.PI:0),bend=.3+.5*(.5+.5*Math.sin(t));
     q.setFromEuler(e.set(0,yaw,0));base.compose(v.set(x,y,z),q,s.set(1,1,1));TIPSOI_FARMS.legs.setMatrixAt(i,base);
     q.setFromEuler(e.set(bend,0,0));local.compose(v.set(0,.85,0),q,s.set(1,1,1));m.multiplyMatrices(base,local);TIPSOI_FARMS.upper.setMatrixAt(i,m);
     q.setFromEuler(e.set(.2+.3*Math.sin(t),0,0));local.compose(v.set(.2,.05,.48),q,s.set(1,1,1));m.multiplyMatrices(base,local);TIPSOI_FARMS.tools.setMatrixAt(i,m);
-    for(const side of [-1,1]){const a=new THREE.Vector3(side*.25,1.28,.1),b=new THREE.Vector3(side*.1,.8+.1*Math.sin(t),.53),direction=b.clone().sub(a),length=direction.length();q.setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize());local.compose(a.add(b).multiplyScalar(.5),q,s.set(1,length,1));m.multiplyMatrices(base,local);TIPSOI_FARMS.arms.setMatrixAt(i*2+(side>0?1:0),m);}i++;
+    for(const side of [-1,1]){const a=FARM_POSE.a.set(side*.25,1.28,.1),b=FARM_POSE.b.set(side*.1,.8+.1*Math.sin(t),.53),direction=FARM_POSE.direction.copy(b).sub(a),length=direction.length();q.setFromUnitVectors(FARM_POSE.up,direction.normalize());local.compose(v.copy(a).add(b).multiplyScalar(.5),q,s.set(1,length,1));m.multiplyMatrices(base,local);TIPSOI_FARMS.arms.setMatrixAt(i*2+(side>0?1:0),m);}i++;
   }
   for(const [mesh,count] of [[TIPSOI_FARMS.upper,i],[TIPSOI_FARMS.legs,i],[TIPSOI_FARMS.tools,i],[TIPSOI_FARMS.arms,i*2]]){mesh.count=count;mesh.instanceMatrix.needsUpdate=true;}
 }

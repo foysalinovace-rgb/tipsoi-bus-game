@@ -82,7 +82,7 @@ function buildMetroTrains(){
   M.trains=[{lane:-1,phase:0},{lane:1,phase:M.cycle/2}];M.pose={m:new THREE.Matrix4(),q:new THREE.Quaternion(),e:new THREE.Euler(),p:new THREE.Vector3(),s:new THREE.Vector3(1,1,1),color:new THREE.Color()};updateDhakaMetro(0);
 }
 function updateDhakaMetro(dt){
-  const M=DHAKA_METRO;if(!M.pose)return;M.clock+=dt;const {m,q,e,p,s,color}=M.pose;let cab=0,middle=0,door=0,lamp=0,display=0;const states=[];
+  const M=DHAKA_METRO;if(!M.pose)return;M.clock+=dt;M.budget=(M.budget||0)+dt;const interval=Math.hypot(st.x-DHAKA.cx,st.z-DHAKA.cz)>1600?1:1/30;if(M.updated&&M.budget<interval)return;M.updated=true;M.budget=0;const {m,q,e,p,s,color}=M.pose;let cab=0,middle=0,door=0,lamp=0,display=0;const states=[];
   for(const train of M.trains){const state=metroTrainState(M.clock,train.phase),x=DHAKA.cx+train.lane*M.trackX,z=DHAKA.cz+state.z;states.push({z:+state.z.toFixed(2),speed:+state.speed.toFixed(2),station:state.station,doors:+state.door.toFixed(2)});
     for(let k=0;k<M.cars;k++){const zz=z+(k-(M.cars-1)/2)*M.carPitch,y=metroBaseY(zz)+M.railY,isCab=k===0||k===M.cars-1,flip=k===0?Math.PI:0;q.setFromEuler(e.set(0,isCab?flip:0,0));m.compose(p.set(x,y,zz),q,s);if(isCab)M.cab.setMatrixAt(cab++,m);else M.middle.setMatrixAt(middle++,m);
       for(const side of [-1,1])for(const center of [-2.4,0,2.4])for(const half of [-1,1]){q.setFromEuler(e.set(0,0,0));m.compose(p.set(x+side*1.32,y+1.74,zz+center+half*(.17+state.door*.3)),q,s);M.doors.setMatrixAt(door++,m);}
@@ -90,5 +90,5 @@ function updateDhakaMetro(dt){
     }
   }
   for(const mesh of [M.cab,M.middle,M.doors,M.lamps,M.displays])mesh.instanceMatrix.needsUpdate=true;M.lamps.instanceColor.needsUpdate=true;
-  M.reportTime-=dt;if(M.reportTime<=0){M.reportTime=.4;const cv=document.getElementById('gl');cv.dataset.metroTrains=2;cv.dataset.metroCars=8;cv.dataset.metroService=JSON.stringify(states);}
+  M.reportTime-=interval;if(M.reportTime<=0){M.reportTime=.4;const cv=document.getElementById('gl');cv.dataset.metroTrains=2;cv.dataset.metroCars=8;cv.dataset.metroService=JSON.stringify(states);}
 }

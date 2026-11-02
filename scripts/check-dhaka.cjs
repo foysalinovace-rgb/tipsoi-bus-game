@@ -21,6 +21,9 @@ assert.equal(DHAKA.roads.length, 32);
 assert.equal(DHAKA.roads.find(r=>r.axis==='ring').w,24);
 assert(DHAKA.roads.filter(r=>r.axis==='link').every(r=>r.w===28),'City highway links must be 28 metres wide');
 assert(DHAKA.gates.length>0,'Highway exit crossings missing');
+assert(dhakaRoadIsFlatLand({wet:[0],br:[0]},0));
+assert(!dhakaRoadIsFlatLand({wet:[0],br:[2.5]},0),'Dry bridge approach must retain its ramp height');
+assert(!dhakaRoadIsFlatLand({wet:[1],br:[4.5]},0),'Bridge deck must not be flattened');
 for(const g of DHAKA.gates){const r=RD[g.ri];let i=0;for(let j=1;j<r.N;j++)if(Math.abs(r.cum[j]-g.s)<Math.abs(r.cum[i]-g.s))i=j;assert.equal(dhakaExitWidth(r,i),28,'Gateway flare not widened');assert(roadEntranceClearance(g.x,g.z,2),'Exit mouth permits trees');}
 for(const r of RD)for(const i of [0,r.N-1])assert(roadEntranceClearance(r.xs[i],r.zs[i],3),'Road endpoint permits trees');
 const fixture={a:{x:100000,z:100000,y:3},b:{x:100080,z:100000,y:5},hw:14,aw:14,bw:7,road:RD[0]};
@@ -144,6 +147,29 @@ for(const offset of [0,metro.cycle/2]){
 }
 for(const leg of metro.schedule){const a=metroTrainState(leg.start-.00001),b=metroTrainState(leg.start+.00001);assert(Math.abs(a.z-b.z)<.001,'Discontinuous station arrival or cycle wrap');}
 console.log('Metro checks passed: two covered terminals, train/platform clearance, continuous journeys, station stops and door interlocks.');
+`,context);
+
+vm.runInContext(source.slice(source.indexOf('function nearestRoad'),source.indexOf('// ---------- build step 1:')),context);
+vm.runInContext('function siteBlocksPoint(){return false;} function heightAt(){return 0;}',context);
+vm.runInContext(fs.readFileSync('src/audit.js','utf8'),context);
+vm.runInContext(`
+const safeBoards=planSafeBillboards();assert(safeBoards.length>300,'Most highway branding disappeared');
+assert(safeBoards.every(p=>!billboardRoadOverlap(p)),'Billboard frame crosses a road');
+const crossRoad=DHAKA.roads.find(r=>r.axis==='street'&&r.index===0);
+assert(billboardRoadOverlap({x:DHAKA.cx,z:crossRoad.zs[0],yaw:0}),'Road-centred billboard was not rejected');
+assert(GAME_AUDIT.billboards.legacyRoadOverlaps>0,'Legacy billboard regression fixture missing');
+console.log('Billboard checks passed: complete panel footprint, junctions, widened exits and safe placement across the road network.');
+`,context);
+vm.runInContext(fs.readFileSync('src/runtime.js','utf8'),context);
+vm.runInContext(`
+assert.equal(runtimeScaleFor(1,35,2),.9);assert.equal(runtimeScaleFor(.5,20,2),.5);assert.equal(runtimeScaleFor(1,60,2),1);assert.equal(runtimeScaleFor(.85,20,1),.85);
+`,context);
+vm.runInContext(fs.readFileSync('src/rural.js','utf8').match(/function farmWorkerY[^\n]+/)[0],context);
+vm.runInContext(`
+const worker={plot:{length:40},heights:Array.from({length:17},(_,i)=>2+i*.125)};
+for(let i=-100;i<=100;i++){const u=i/100*13.6,y=farmWorkerY(worker,u);assert(Number.isFinite(y)&&y>=2&&y<=4,'Invalid cached farmer height');}
+assert.equal(farmWorkerY(worker,-100),2);assert.equal(farmWorkerY(worker,100),4);
+console.log('Runtime checks passed: adaptive resolution limits and cached farmer path heights.');
 `,context);
 
 const html = fs.readFileSync('dist/index.html', 'utf8');

@@ -48,12 +48,14 @@ function buildDhakaExitLanes(hard,white){
   if(strips.length){const mesh=new THREE.Mesh(combine(strips),new THREE.MeshLambertMaterial({map:dhakaAsphalt(),polygonOffset:true,polygonOffsetFactor:-4,polygonOffsetUnits:-6}));mesh.receiveShadow=true;DHAKA.group.add(mesh);ENV.roadMats.push(mesh.material);}document.getElementById('gl').dataset.dhakaExitGates=DHAKA.gates.length;document.getElementById('gl').dataset.dhakaExitSegments=count;
 }
 function buildDhakaBillboards(materials){
+  DHAKA.adSites=DHAKA.adSites.filter(p=>!billboardRoadOverlap(p,4.4,.35));
   const group=new THREE.Group(),frameG=new THREE.BoxGeometry(8.7,4.6,.22),panelG=new THREE.PlaneGeometry(8.4,4.25),steel=new THREE.MeshLambertMaterial({color:'#343a4a'});
   for(let i=0;i<DHAKA.adSites.length;i++){const p=DHAKA.adSites[i],mount=new THREE.Group(),frame=new THREE.Mesh(frameG,steel),face=new THREE.Mesh(panelG,materials[i%materials.length]);frame.castShadow=true;face.position.z=.13;mount.add(frame,face);for(const x of [-3.4,3.4]){const bracket=new THREE.Mesh(new THREE.BoxGeometry(.14,1.3,.5),steel);bracket.position.set(x,-2.6,-.05);mount.add(bracket);}mount.position.set(p.x,p.y,p.z);mount.rotation.y=p.yaw;group.add(mount);}
   scene.add(group);document.getElementById('gl').dataset.dhakaBillboards=DHAKA.adSites.length;
 }
+function dhakaRoadIsFlatLand(r,i){return !(r.wet&&r.wet[i])&&!(r.br&&r.br[i]>.01);}
 function prepareDhakaHeights(){
-  for(const r of RD)for(let i=0;i<r.N;i++){const x=r.xs[i],z=r.zs[i];if(!dhakaContains(x,z)||r.wet[i])continue;const d=Math.min(x-DHAKA.cx-DHAKA.x0,DHAKA.cx+DHAKA.x1-x,z-DHAKA.cz-DHAKA.z0,DHAKA.cz+DHAKA.z1-z),blend=Math.min(1,d/20);r.ys[i]=r.ys[i]*(1-blend)+dhakaHeight(x,z)*blend;r.emb[i]*=1-blend;r.br[i]*=1-blend;}
+  for(const r of RD)for(let i=0;i<r.N;i++){const x=r.xs[i],z=r.zs[i];if(!dhakaContains(x,z)||!dhakaRoadIsFlatLand(r,i))continue;const d=Math.min(x-DHAKA.cx-DHAKA.x0,DHAKA.cx+DHAKA.x1-x,z-DHAKA.cz-DHAKA.z0,DHAKA.cz+DHAKA.z1-z),blend=Math.min(1,d/20);r.ys[i]=r.ys[i]*(1-blend)+dhakaHeight(x,z)*blend;r.emb[i]*=1-blend;r.br[i]*=1-blend;}
 }
 function pruneDhakaSites(){for(let i=SITES.length-1;i>=0;i--)if(dhakaContains(SITES[i].x,SITES[i].z,25))SITES.splice(i,1);for(const r of RD)r.sites=r.sites.filter(o=>SITES.includes(o));}
 function pruneDhakaRoundabouts(){for(let i=ROUNDABOUTS.length-1;i>=0;i--)if(dhakaContains(ROUNDABOUTS[i].x,ROUNDABOUTS[i].z,25))ROUNDABOUTS.splice(i,1);for(const j of JUNCTIONS)if(j.ra&&!ROUNDABOUTS.includes(j.ra))delete j.ra;}

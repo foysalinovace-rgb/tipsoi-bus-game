@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node serve.cjs",
     "build": "node scripts/build.cjs",
-    "check:dhaka": "node scripts/check-dhaka.cjs"
+    "check:dhaka": "node scripts/check-dhaka.cjs",
+    "check:server": "node scripts/check-server.cjs"
   },
   "engines": {
     "node": ">=18"
