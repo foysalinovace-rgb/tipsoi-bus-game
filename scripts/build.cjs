@@ -43,7 +43,8 @@ const brandingJS = fs.readFileSync('src/branding.js', 'utf8');
 const sceneryJS = fs.readFileSync('src/scenery.js', 'utf8');
 const ruralJS = fs.readFileSync('src/rural.js', 'utf8');
 const dhakaJS = fs.readFileSync('src/dhaka.js', 'utf8').replace('__DHAKA_LAYOUT__', fs.readFileSync('src/dhaka-layout.json','utf8').trim());
-html = html.replace('const BD_RINGS =', brandingJS + '\n' + sceneryJS + '\n' + ruralJS + '\n' + dhakaJS + '\nconst BD_RINGS =');
+const roadsideJS = fs.readFileSync('src/roadside.js','utf8');
+html = html.replace('const BD_RINGS =', brandingJS + '\n' + sceneryJS + '\n' + ruralJS + '\n' + dhakaJS + '\n' + roadsideJS + '\nconst BD_RINGS =');
 html = html.replace('buildScene(tex); applyTipsoiQuality();', 'buildScene(tex); upgradeTipsoiScenery(); applyTipsoiQuality();');
 html = html.replace('const trunkG = new THREE.CylinderGeometry(.16, .26, 1, 6); trunkG.translate(0, .5, 0);', 'const trunkG = tipsoiTrunkGeometry();');
 html = html.replace("trunkG, new THREE.MeshLambertMaterial({ color: '#ffffff' })", 'trunkG, tipsoiBarkMaterial()');
@@ -96,6 +97,31 @@ dhakaPatch('if(!isWater(bx,bz))TIPSOI_BOARDS.locations.push', 'if(!dhakaContains
 dhakaPatch('  buildJump(); bindBigMap();','  buildJump(); addDhakaJumpButtons(); bindBigMap();');
 dhakaPatch('  if (opts.labels) {','  dhakaMap(ctx,k);\n  if (opts.labels) {');
 dhakaPatch("  const rd = $('road');", "  if(dhakaContains(st.x,st.z)){ $('placeBn').textContent=dhakaNameAt(st.x,st.z); $('placeEn').textContent='Dhaka City · ঢাকা নগর'; }\n  const rd = $('road');");
+// Move the shelter, its passengers and collider together; all road widths and
+// intersecting carriageways participate in placement, including highway flares.
+dhakaPatch('          const x = r.xs[j] + lx * 9.6, z = r.zs[j] + lz * 9.6;', "          const site = findRoadsideSite(r, ss, dir, 'stop'); if (!site) return; const {x,z} = site;");
+dhakaPatch('ri, dir, s: ss, x, z, y: r.ys[j], yaw: Math.atan2(fx, fz)', 'ri, dir, s: site.s, x, z, y: r.ys[j], yaw: site.yaw, site');
+dhakaPatch('          BUS_STOPS.push(stop); r.stops[dir].push(stop);', '          reserveRoadsideSite(site); ROADSIDE.stops.push(site); BUS_STOPS.push(stop); r.stops[dir].push(stop);');
+dhakaPatch('b.y = surfaceY(b.x, b.z) + .32;', 'b.y = roadsideGroundY(b.x, b.z) + .32;');
+dhakaPatch('  BUS_STOPS.forEach((b, k) => {\n    addStaticBox', "  const stopPads=new THREE.InstancedMesh(new THREE.BoxGeometry(3.2,1,6.6),new THREE.MeshLambertMaterial({color:'#b5b1a3'}),Math.max(1,BUS_STOPS.length)); stopPads.count=BUS_STOPS.length;\n  BUS_STOPS.forEach((b, k) => {\n    const padTop=b.y-.32,padH=Math.max(.14,padTop-heightAt(b.x,b.z)+.03); _q.setFromAxisAngle(_Y,b.yaw); _p.set(b.x,padTop-padH/2,b.z); _s.set(1,padH,1); _m.compose(_p,_q,_s); stopPads.setMatrixAt(k,_m);\n    addStaticBox");
+dhakaPatch('[im, sign, pim].forEach(o =>', '[im, sign, pim, stopPads].forEach(o =>');
+dhakaPatch('  const poles = new THREE.InstancedMesh(pg.geometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), N);', "  const poles = new THREE.InstancedMesh(pg.geometry(), new THREE.MeshLambertMaterial({ vertexColors: true }), N);\n  const signalBases=new THREE.InstancedMesh(new THREE.BoxGeometry(.65,1,.65),new THREE.MeshLambertMaterial({color:'#a7a89d'}),N);");
+dhakaPatch('    const px = P.x + lx * (r.hw + 1.1), pz = P.z + lz * (r.hw + 1.1), py = surfaceY(px, pz), yaw = Math.atan2(-fx, -fz);', `    const site = findRoadsideSite(r,a.s,a.dir,'signal');
+    if(!site){ _m.makeScale(0,0,0); poles.setMatrixAt(k,_m); signalBases.setMatrixAt(k,_m); SIG.lamps.forEach(im=>im.setMatrixAt(k,_m)); }
+    const px=site?site.x:0, pz=site?site.z:0, py=site?roadsideGroundY(px,pz):0, yaw=Math.atan2(-fx,-fz);`);
+dhakaPatch("    a.x = P.x; a.z = P.z; addStatic(px, pz, .2, 'pole');", "    a.x=P.x; a.z=P.z; if(site){ reserveRoadsideSite(site); ROADSIDE.signals.push(site); addStatic(px,pz,.2,'pole');");
+dhakaPatch('    [4.5, 4.1, 3.7].forEach((y, i) =>', '    const baseH=Math.max(.16,py-heightAt(px,pz)+.06); _p.set(px,py+.03-baseH/2,pz); _s.set(1,baseH,1); _m.compose(_p,_q,_s); signalBases.setMatrixAt(k,_m); _s.set(1,1,1);\n    [4.5, 4.1, 3.7].forEach((y, i) =>');
+dhakaPatch('    // stop line across the approaching half of the road', '    }\n    // stop line across the approaching half of the road');
+dhakaPatch('SIG.ready = true;', 'SIG.ready = true; reportRoadsidePlacement();');
+dhakaPatch('poles.castShadow = true; scene.add(poles);', 'poles.castShadow = true; signalBases.castShadow=signalBases.receiveShadow=true; scene.add(signalBases); scene.add(poles);');
+dhakaPatch('n.d<n.hw+10||dhakaExitAt(x,z,11)', 'n.d<n.hw+10||roadsideReservedAt(x,z,11)||dhakaExitAt(x,z,11)');
+dhakaPatch('if(roadEntranceClearance(x,z,crown))return false;', 'if(roadsideReservedAt(x,z,crown+2)||roadEntranceClearance(x,z,crown))return false;');
+dhakaPatch('return roadEntranceClearance(x,z,padding)||', 'return roadsideReservedAt(x,z,padding)||roadEntranceClearance(x,z,padding)||');
+dhakaPatch('if(dhakaContains(x,z,20))return null;', 'if(dhakaContains(x,z,20)||roadsideReservedAt(x,z,Math.hypot(w,d)/2+3))return null;');
+dhakaPatch('ruralBuildingAt(px,pz,3.3)||siteBlocksPoint', 'ruralBuildingAt(px,pz,3.3)||roadsideReservedAt(px,pz,3.5)||siteBlocksPoint');
+dhakaPatch('dhakaExitAt(x,z,6)||ruralBuildingAt', 'dhakaExitAt(x,z,6)||roadsideReservedAt(x,z,5)||ruralBuildingAt');
+dhakaPatch('if(isWater(x,zz)||n.d<n.hw+1||dhakaExitAt(x,zz,1))continue;', 'if(roadsideReservedAt(x,zz,1)||isWater(x,zz)||n.d<n.hw+1||dhakaExitAt(x,zz,1))continue;');
+dhakaPatch('_p.set(P.x + lx * r.hw / 2, P.y + .01, P.z + lz * r.hw / 2); _s.set(r.hw - .3, 1, 1);', 'const stopHw=(dhakaExitWidth(r,P.i)*(1-P.t)+dhakaExitWidth(r,P.i+1)*P.t)/2; _p.set(P.x + lx * stopHw / 2, P.y + .01, P.z + lz * stopHw / 2); _s.set(stopHw - .3, 1, 1);');
 html = html.replace('</style>', fs.readFileSync('src/branding.css','utf8')+'\n</style>');
 html += fs.readFileSync('src/products.html','utf8');
 fs.writeFileSync('dist/index.html', html);

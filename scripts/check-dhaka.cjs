@@ -61,6 +61,28 @@ assert.equal(seen.size,DHAKA.roads.length,'Disconnected city street or gateway')
 console.log('Dhaka checks passed: original road positions, city boundary, bus widths, district crossings and connected street network.');
 `, context);
 
+vm.runInContext(source.slice(source.indexOf('// road spatial buckets'),source.indexOf('function nearestRoad')),context);
+vm.runInContext(source.match(/function idxAt\(r, s\) \{[^\n]+/)[0],context);
+vm.runInContext(source.slice(source.indexOf('function roadPoint(r, s)'),source.indexOf('const _fx =')),context);
+vm.runInContext('const STATICS=[]; function isWater(){return false;} function maskAt(){return 160;} function raAt(){return null;}',context);
+vm.runInContext(fs.readFileSync('src/roadside.js','utf8'),context);
+vm.runInContext(`
+for(const g of DHAKA.gates){
+  const r=RD[g.ri],p=roadPoint(r,g.s),oldX=p.x+p.tz*(r.hw+1.1),oldZ=p.z-p.tx*(r.hw+1.1);
+  assert(!roadsideFootprintClear(oldX,oldZ,.5,.5,Math.atan2(p.tx,p.tz)),'Old signal location should overlap a widened exit');
+  for(const kind of ['signal','stop'])for(const dir of [-1,1]){
+    const site=findRoadsideSite(r,g.s,dir,kind);assert(site,'No safe roadside location found');
+    assert(roadsideFootprintClear(site.x,site.z,site.hx,site.hz,site.yaw),'Fixture overlaps highway flare');
+    reserveRoadsideSite(site);
+  }
+}
+const avenue=DHAKA.roads.find(r=>r.axis==='avenue'&&r.index===0),crossing=180-7*52+465;
+const shelter=findRoadsideSite(avenue,crossing,1,'stop');assert(shelter,'Intersection shelter could not be relocated');
+assert(Math.abs(shelter.s-crossing)>7,'Shelter stayed in intersecting traffic lanes');
+assert(roadsideFootprintClear(shelter.x,shelter.z,shelter.hx,shelter.hz,shelter.yaw));
+console.log('Roadside checks passed: both traffic directions, widened exits, full shelter footprints and crossing-road clearance.');
+`,context);
+
 const html = fs.readFileSync('dist/index.html', 'utf8');
 for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) if (match[1].trim()) new vm.Script(match[1]);
 assert(html.includes('if (r.dhaka) return false;'), 'City road vehicle exclusion missing');
