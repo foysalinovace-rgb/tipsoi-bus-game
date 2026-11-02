@@ -71,6 +71,7 @@ function buildDhakaCity(){
   const Y=new THREE.Vector3(0,1,0),m=new THREE.Matrix4(),q=new THREE.Quaternion(),v=new THREE.Vector3(),scale=new THREE.Vector3();
   const plane=(list,x,z,w,d,y)=>list.push({x,z,w,d,y});
   buildDhakaExitLanes(hard,white);
+  planMetroEntrances();
   const streetCross=(r,x,z,extra=0)=>DHAKA.roads.some(o=>o!==r&&((r.axis==='avenue'&&o.axis==='street'&&Math.abs(z-o.zs[0])<o.hw+extra)||(r.axis==='street'&&o.axis==='avenue'&&Math.abs(x-o.xs[0])<o.hw+extra)));
   // Road surfaces share the engine's height field, traction and map routing.
   for(const r of DHAKA.roads){const strip=ribbon(r.xs,r.zs,()=>r.w,i=>r.ys[i]+.025,true,r.cum);for(let i=0;i<strip.uv.length;i+=2){strip.uv[i]*=r.w/7;strip.uv[i+1]*=3;}lanes.push(strip);if(r.axis!=='avenue'&&r.axis!=='street')continue;
@@ -137,11 +138,7 @@ function dhakaSign(text,x,y,z,yaw,w,h,group){const c=document.createElement('can
 function buildDhakaShops(data,group){const c=document.createElement('canvas');c.width=1024;c.height=1024;const g=c.getContext('2d'),names=['মায়ের দোয়া স্টোর','ঢাকা ফার্মেসী','টিপসই স্মার্ট ডিভাইস','বিসমিল্লাহ হোটেল','সোনার বাংলা বস্ত্রালয়','জননী টেলিকম','নূর ইলেকট্রনিক্স','রহমান ট্রেডার্স'];for(let i=0;i<16;i++){const x=i%4*256,y=Math.floor(i/4)*256;g.fillStyle=['#ddd5c0','#d4ddd4','#b7c4c9'][i%3];g.fillRect(x,y,256,256);g.fillStyle=['#224d44','#a54a38','#335b7c','#6d4770'][i%4];g.fillRect(x+4,y+8,248,68);g.fillStyle='#fff4d3';g.font='700 24px "Hind Siliguri",sans-serif';g.textAlign='center';g.fillText(names[i%8],x+128,y+52,238);g.fillStyle='#66736e';g.fillRect(x+9,y+83,238,167);g.strokeStyle='#434b47';for(let j=0;j<15;j++){g.beginPath();g.moveTo(x+9,y+88+j*11);g.lineTo(x+247,y+88+j*11);g.stroke();}g.fillStyle='#253d3b';g.fillRect(x+101,y+94,54,156);g.fillStyle='#ddd1a6';g.fillRect(x+147,y+170,3,12);}
   const mat=new THREE.MeshLambertMaterial({map:new THREE.CanvasTexture(c),side:THREE.DoubleSide});const geometries=[];for(const p of data){const slot=Math.abs(p.seed)%16,geo=new THREE.PlaneGeometry(10,3.4),uv=geo.attributes.uv;for(let i=0;i<uv.count;i++)uv.setXY(i,(slot%4+uv.getX(i))/4,1-(Math.floor(slot/4)+1-uv.getY(i))/4);geo.rotateY(p.yaw);geo.translate(p.x,p.y,p.z);geometries.push(geo);}if(geometries.length)group.add(new THREE.Mesh(combineSceneryGeometries(geometries),mat));
 }
-function buildDhakaMetro(hard,dark,metal,signs){const x=DHAKA.cx,lo=DHAKA.cz-450,hi=DHAKA.cz+500;
-  for(let z=lo;z<hi;z+=12){const y=dhakaHeight(x,z);hard.box(8.8,1.05,12.05,x,y+12.3,z+6,'#b2aa94');hard.box(.32,1.3,12.05,x-4.25,y+13.4,z+6,'#c4baa2');hard.box(.32,1.3,12.05,x+4.25,y+13.4,z+6,'#c4baa2');for(const side of [-1,1])metal.box(.12,.12,12,x+side*1.6,y+12.91,z+6,'#596464');}
-  for(let z=lo+10;z<hi;z+=26){if(dhakaExitAt(x,z,2.5)||DHAKA.rows.some(row=>Math.abs(z-(DHAKA.cz+180-row*52))<16))continue;const y=dhakaHeight(x,z);hard.box(1.6,11.7,1.8,x,y+5.85,z,'#c5baa2');hard.box(7.2,1.1,2.1,x,y+11.3,z,'#b1a58d');hard.box(2.9,.2,7,x,y+.12,z,'#d6d2be');for(let k=0;k<7;k++)(k%2?dark:hard).box(.24,.22,1,x-1.45,y+.2,z-3+k,k%2?'#272e2b':'#e8c637');addStaticBox(x,z,.95,1,0,'wall');DHAKA.metro++;}
-  for(const row of [0,7,12]){const z=DHAKA.cz+180-row*52+25,y=dhakaHeight(x,z);hard.box(22,2,22,x,y+11.6,z,'#ccc6b3');hard.box(24,.4,24,x,y+17,z,'#839594');for(const side of [-1,1]){metal.box(.25,3.6,24,x+side*10.9,y+14.8,z,'#496b6d');hard.box(24,.35,1,x,y+14.6,z+side*11,'#d8d7c5');signs.push({text:dhakaDistrict(0,row)[0]+' মেট্রো স্টেশন',x:x+side*11.05,y:y+13.2,z,yaw:side*Math.PI/2,w:18,h:1.9});}}
-}
+function buildDhakaMetro(hard,dark,metal,signs){buildDhakaMetroLine(hard,dark,metal,signs);}
 function buildDhakaStreetDetails(hard,metal,white,trees,signs){
   for(const row of DHAKA.rows){const z=DHAKA.cz+180-row*52,y=dhakaHeight(DHAKA.cx,z);for(const side of [-1,1])for(let k=-8;k<=8;k++)white.box(.5,.02,3,DHAKA.cx+side*17+k*.65,y+.065,z+side*15,'#e4e2d6');
     if(row%3===0)for(const side of [-1,1]){const x=DHAKA.cx+side*15.8;metal.box(.13,6.3,.13,x,y+3.2,z+18,'#545a56');signs.push({text:dhakaDistrict(0,row)[0],x,y:y+5.5,z:z+18,yaw:0,w:8,h:1.4});}

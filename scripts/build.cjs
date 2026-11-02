@@ -45,7 +45,8 @@ const ruralJS = fs.readFileSync('src/rural.js', 'utf8');
 const dhakaJS = fs.readFileSync('src/dhaka.js', 'utf8').replace('__DHAKA_LAYOUT__', fs.readFileSync('src/dhaka-layout.json','utf8').trim());
 const roadsideJS = fs.readFileSync('src/roadside.js','utf8');
 const marketsJS = fs.readFileSync('src/markets.js','utf8');
-html = html.replace('const BD_RINGS =', brandingJS + '\n' + sceneryJS + '\n' + ruralJS + '\n' + dhakaJS + '\n' + roadsideJS + '\n' + marketsJS + '\nconst BD_RINGS =');
+const metroJS = fs.readFileSync('src/metro.js','utf8');
+html = html.replace('const BD_RINGS =', brandingJS + '\n' + sceneryJS + '\n' + ruralJS + '\n' + dhakaJS + '\n' + roadsideJS + '\n' + marketsJS + '\n' + metroJS + '\nconst BD_RINGS =');
 html = html.replace('buildScene(tex); applyTipsoiQuality();', 'buildScene(tex); upgradeTipsoiScenery(); applyTipsoiQuality();');
 html = html.replace('const trunkG = new THREE.CylinderGeometry(.16, .26, 1, 6); trunkG.translate(0, .5, 0);', 'const trunkG = tipsoiTrunkGeometry();');
 html = html.replace("trunkG, new THREE.MeshLambertMaterial({ color: '#ffffff' })", 'trunkG, tipsoiBarkMaterial()');
@@ -124,6 +125,7 @@ dhakaPatch('dhakaExitAt(x,z,6)||ruralBuildingAt', 'dhakaExitAt(x,z,6)||roadsideR
 dhakaPatch('if(isWater(x,zz)||n.d<n.hw+1||dhakaExitAt(x,zz,1))continue;', 'if(roadsideReservedAt(x,zz,1)||isWater(x,zz)||n.d<n.hw+1||dhakaExitAt(x,zz,1))continue;');
 dhakaPatch('_p.set(P.x + lx * r.hw / 2, P.y + .01, P.z + lz * r.hw / 2); _s.set(r.hw - .3, 1, 1);', 'const stopHw=(dhakaExitWidth(r,P.i)*(1-P.t)+dhakaExitWidth(r,P.i+1)*P.t)/2; _p.set(P.x + lx * stopHw / 2, P.y + .01, P.z + lz * stopHw / 2); _s.set(stopHw - .3, 1, 1);');
 dhakaPatch('updateTipsoiFarming(!paused || attract ? dt : 0);', 'updateTipsoiFarming(!paused || attract ? dt : 0); updateFootpathMarkets(!paused || attract ? dt : 0);');
+dhakaPatch('updateFootpathMarkets(!paused || attract ? dt : 0);', 'updateFootpathMarkets(!paused || attract ? dt : 0); updateDhakaMetro(!paused || attract ? dt : 0);');
 dhakaPatch("flushBazaar(site); site.job = null; site.half = 2; site.obDone = true; return;", "flushBazaar(site); site.job = null; site.half = 2; site.obDone = true; registerBazaarMarkets(site); return;");
 dhakaPatch('return roadsideReservedAt(x,z,padding)||', 'return marketReservedAt(x,z,padding)||roadsideReservedAt(x,z,padding)||');
 dhakaPatch('if(dhakaContains(x,z,20)||roadsideReservedAt', 'if(marketReservedAt(x,z,Math.hypot(w,d)/2+3)||dhakaContains(x,z,20)||roadsideReservedAt');

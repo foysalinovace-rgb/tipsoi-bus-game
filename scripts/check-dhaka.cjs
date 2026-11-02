@@ -120,6 +120,32 @@ const once=FOOTPATH_MARKET.sites.length;registerBazaarMarkets(bazaar);assert.equ
 console.log('Market checks passed: all three seller types, traffic clearance and shoppers staying on both sides of rotated footpaths.');
 `,context);
 
+vm.runInContext(fs.readFileSync('src/metro.js','utf8'),context);
+vm.runInContext(`
+planMetroService();
+const metro=DHAKA_METRO,nose=((metro.cars-1)*metro.carPitch+metro.carLength)/2;
+assert(metro.stations[0].terminal&&metro.stations.at(-1).terminal,'Line endpoints need terminal stations');
+assert(metro.stations[0].z-metro.stations[0].length/2<=metro.lo,'Northern deck ends outside its terminal');
+assert(metro.stations.at(-1).z+metro.stations.at(-1).length/2>=metro.hi,'Southern deck ends outside its terminal');
+assert(metro.trackX*2>2.55+.8,'Opposing trains do not have clearance');
+assert(metroPierPositions().length>10,'Viaduct has no regular ground supports');
+for(const z of metroPierPositions())assert(!DHAKA.rows.some(row=>Math.abs(z-(DHAKA.cz+180-row*52))<16),'Metro support blocks a cross street');
+for(const station of metro.stations)assert(station.length>nose*2+4,'Train is longer than its platform');
+for(const offset of [0,metro.cycle/2]){
+  let previous=metroTrainState(0,offset),open=0,moving=0;
+  for(let time=.1;time<metro.cycle*2;time+=.1){const state=metroTrainState(time,offset);
+    assert(state.z-nose>metro.lo+3&&state.z+nose<metro.hi-3,'Train passes a terminal buffer');
+    assert(Math.abs(state.z-previous.z)<=.901,'Train teleports between service phases');
+    assert(state.speed>=0&&state.speed<=9.001,'Invalid metro speed');
+    if(state.door>.01){assert.equal(state.speed,0,'Doors open while moving');assert(state.station>=0,'Doors open away from a station');open++;}
+    if(state.speed>1)moving++;previous=state;
+  }
+  assert(open>0&&moving>0,'Service must stop with doors open and also travel');
+}
+for(const leg of metro.schedule){const a=metroTrainState(leg.start-.00001),b=metroTrainState(leg.start+.00001);assert(Math.abs(a.z-b.z)<.001,'Discontinuous station arrival or cycle wrap');}
+console.log('Metro checks passed: two covered terminals, train/platform clearance, continuous journeys, station stops and door interlocks.');
+`,context);
+
 const html = fs.readFileSync('dist/index.html', 'utf8');
 for (const match of html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)) if (match[1].trim()) new vm.Script(match[1]);
 assert(html.includes('if (r.dhaka) return false;'), 'City road vehicle exclusion missing');
